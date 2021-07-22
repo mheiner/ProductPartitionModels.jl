@@ -1,5 +1,19 @@
 module ProductPartitionModels
 
-# Write your package code here.
+using Base: Real
+using Distributions: SpecialFunctions
+using Distributions
+using StatsBase
+using SpecialFunctions
 
-end
+include("general.jl")
+
+include("cohesion.jl")
+include("similarity.jl")
+
+include("generalizedInverseGaussian.jl")
+include("DirichletLaplace_shrinkage.jl")
+
+include("simulate_prior.jl")
+
+end # module

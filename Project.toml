@@ -3,6 +3,11 @@ uuid = "dc94b787-0653-43d5-ba3f-631bd51a31aa"
 authors = ["Matt Heiner <heiner@stat.byu.edu> and contributors"]
 version = "0.1.0"
 
+[deps]
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+
 [compat]
 julia = "1.6"
 
