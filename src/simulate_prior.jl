@@ -1,41 +1,7 @@
-using Core: Matrix, Vector
+# using Core: Matrix, Vector
 # simulate_prior.jl
 
-export sim_part;
-
-n = 30
-p = 5
-nmis = 10
-nobs = n*p - nmis
-X = Matrix{Union{Missing, Float64}}(missing, n, p)
-obs_indx_sim = sample(1:(n*p), nobs; replace=false)
-X[obs_indx_sim] = randn(nobs)
-size(X)
-
-X
-
-for i in (n-10+1):n
-    X[i,:] += [1.0, 3.0, 0.0, 0.0, -5.0]
-end
-
-X
-
-# X = [0.1 10.0; -0.1 11.0; -3.0 0.0; -2.2 0.1; -2.5 -0.2]
-
-obs_indx = [ findall(.!ismissing.(X[i,:])) for i in 1:size(X,1) ]
-
-X[1:5,:]
-obs_indx[1:5]
-
-X[(n-10+1):n,:]
-obs_indx[(n-10+1):n]
-
-[ mean(skipmissing(X[:,j])) for j in 1:size(X,2) ]
-
-similarity = Similarity_NiG_indep(0.0, 0.1, 4.0, 4.0)
-similarity = Similarity_NiG_indep(0.0, 0.1, 1.0, 1.0)
-α = 1.0
-logα = log(α)
+export sim_partition_PPMx, sim_lik;
 
 function sim_partition_PPMx(logα::Real, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} where T <: Real, 
     similarity::Similarity_PPMx)
@@ -105,5 +71,58 @@ function sim_partition_PPMx(logα::Real, X::Union{Matrix{T}, Matrix{Union{T, Mis
     return C, K_now, S, lcohesions, stats, lsimilarities
 end
 
-testC, testK, testS, testlc, teststat, testsimilar = sim_partition_PPMx(logα, X, similarity)
-testC
+function sim_lik(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} where T <: Real, 
+    similarity::Similarity_NiG_indep, Xstats::Vector{Vector{Similarity_NiG_indep_stats}}, basemeasure::Baseline_measure)
+
+    n, p = size(X)
+    K = maximum(C)
+    S = StatsBase.counts(C, K)
+
+    β = Matrix{Float64}(undef, K, p)
+    for k in 1:K
+        ϕ = rand(Dirichlet(p, 1.0/p))
+        τ = rand(Gamma(1.0, 2.0 * basemeasure.τ0))
+        ψ = rand(Exponential(2.0), p)
+        β[k,:] = randn(p) .* τ .* ϕ .* ψ
+    end
+
+    μ = randn(K) .* basemeasure.σ0 .+ basemeasure.μ0
+    σ = rand(K) .* basemeasure.upper_σ
+
+    Xfill = deepcopy(X)
+    y = Vector{Float64}(undef, n)
+
+    for k in 1:K
+
+        C_indx_now = findall(C.==k)
+
+        for j in 1:p
+
+            fill_indx = findall(ismissing.(X[C_indx_now,j]))
+            n_fill = length(fill_indx)
+            
+            if n_fill < S[k]
+                xbar_now = Xstats[k][j].sumx / Xstats[k][j].n
+                mean_now = xbar_now # could do something else
+                sd_now = (Xstats[k][j].sumx2 - Xstats[k][j].n * xbar_now^2) / (Xstats[k][j].n - 1.0) # could do something else
+            else
+                mean_now = similarity.m0
+                sd_now = similarity.b0 / (similarity.a0 + 1.0) / similarity.sc_div0
+            end
+
+            # center Xfill
+            Xfill[C_indx_now,j] .-= mean_now
+
+            if n_fill > 0
+                Xfill[C_indx_now[fill_indx],j] = randn(n_fill) .* sd_now
+            end
+
+        end
+
+        y[C_indx_now] = randn(S[k]) .* σ[k] + Xfill[C_indx_now,:] * β[k,:] .+ μ[k]
+
+    end
+
+    return y, μ, β, σ 
+end
+
