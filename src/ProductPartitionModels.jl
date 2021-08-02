@@ -13,6 +13,7 @@ include("similarity.jl")
 
 include("likelihood.jl")
 
+include("slice_sample.jl")
 include("generalizedInverseGaussian.jl")
 include("DirichletLaplace_shrinkage.jl")
 

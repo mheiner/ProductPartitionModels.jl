@@ -1,4 +1,4 @@
-# manualtests.jl
+# sim_priorPred.jl
 
 using Plots
 using Plotly # run pkg> activate to be outside the package
@@ -71,6 +71,11 @@ y, μ, β, σ = sim_lik(C, X, similarity, Xstat, G0)
 
 y
 
+obsXindx = [ ObsXIndx(X[i,:]) for i in 1:n ]
+likParams = [ LikParams_PPMxReg(μ[k], σ[k], β[k,:], Hypers_DirLap(randn(2), randn(2), 1.0)) for k in 1:K ]
+llik_all(y, X, C, obsXindx, likParams, Xstat, similarity)
+
+
 xlim = [minimum(skipmissing(X[:,1])), maximum(skipmissing(X[:,1]))]
 ylim = [minimum(skipmissing(X[:,2])), maximum(skipmissing(X[:,2]))]
 zlim = [minimum(y), maximum(y)]
@@ -123,6 +128,7 @@ trace3 = scatter3d(Dict(
   :marker => Dict(:color => colors[C[indx_x1m]], :size => 5.0)
 ))
 plot([trace3])
+
 
 trace4 = scatter3d(Dict(
   :x => zeros(length(indx_allmiss)),

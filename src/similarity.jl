@@ -24,8 +24,6 @@ mutable struct Similarity_NiG_indep_stats <: Similarity_PPMx
     n::Int
     sumx::Real
     sumx2::Real
-
-    Similarity_NiG_indep_stats(n, sumx, sumx2) = new(n, sumx, sumx2)
 end
 
 function Similarity_NiG_indep_stats(x::Vector{T} where T <: Real)

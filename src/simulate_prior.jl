@@ -12,7 +12,7 @@ function sim_partition_PPMx(logα::Real, X::Union{Matrix{T}, Matrix{Union{T, Mis
     C[1] = 1 # cluster assinment of first obs
     K_now = 1 # current number of clusters
     S = [1] # cluster sizes
-    lcohes1 = log_cohesion_CRP(logα, 1)
+    lcohes1 = log_cohesion(Cohesion_CRP(logα, 1, true))
 
     lcohesions = [ lcohes1 ] # vector of log cohesions
     stats = [ [ Similarity_NiG_indep_stats([X[1,j]]) for j = 1:p ] ] # vector (for each clust) of vectors (for each x, 1:p) of sufficient statistics for similarity, obs 1 only so far
@@ -30,7 +30,7 @@ function sim_partition_PPMx(logα::Real, X::Union{Matrix{T}, Matrix{Union{T, Mis
             for k in 1:K_now # for each cluster
 
                 # cohesion with obs i added
-                lcohes_cand[k] = log_cohesion_CRP(logα, S[k] + 1)
+                lcohes_cand[k] = log_cohesion(Cohesion_CRP(logα, S[k] + 1, true))
 
                 # stats for similarity with obs i added (each X[i,:], 1:p); similarity with obs i added
                 for j in 1:p
@@ -104,10 +104,15 @@ function sim_lik(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} 
             if n_fill < S[k]
                 xbar_now = Xstats[k][j].sumx / Xstats[k][j].n
                 mean_now = xbar_now # could do something else
-                sd_now = (Xstats[k][j].sumx2 - Xstats[k][j].n * xbar_now^2) / (Xstats[k][j].n - 1.0) # could do something else
+                if Xstats[k][j].n > 1
+                    s2_now = (Xstats[k][j].sumx2 - Xstats[k][j].n * xbar_now^2) / (Xstats[k][j].n - 1.0)
+                    sd_now = sqrt(s2_now) # could do something else
+                else
+                    sd_now = sqrt(similarity.b0 / (similarity.a0 + 1.0) / similarity.sc_div0) # could do something else
+                end 
             else
-                mean_now = similarity.m0
-                sd_now = similarity.b0 / (similarity.a0 + 1.0) / similarity.sc_div0
+                mean_now = similarity.m0 # could do something else
+                sd_now = sqrt(similarity.b0 / (similarity.a0 + 1.0) / similarity.sc_div0) # could do something else
             end
 
             # center Xfill
