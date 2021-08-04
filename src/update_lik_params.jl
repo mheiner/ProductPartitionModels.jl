@@ -16,7 +16,7 @@ struct TargetArgs_sliceSig{T <: Real} <: TargetArgs
     sig_old::T
 end
 
-function llik_k_forEsliceBeta(beta_cand::Vector{T}, args::TargetArgs_EsliceBetas)
+function llik_k_forEsliceBeta(beta_cand::Vector{T}, args::TargetArgs_EsliceBetas) where T <: Real
 
     lik_params_cand = deepcopy(args.lik_params_k)
     lik_params_cand.beta = beta_cand
@@ -39,7 +39,7 @@ function update_lik_params!(model::Model_PPMx)
         indx_k = findall(model.state.C.==k)
 
         ## update betas, produces vectors of obs-specific means and variances
-        prior_var_beta = model.state.lik_params[k].beta_hypers.τ.^2 .* 
+        prior_var_beta = model.state.lik_params[k].beta_hypers.τ.^2 .* model.state.baseline.τ0^2 .*
             model.state.lik_params[k].beta_hypers.ϕ.^2 .* 
             model.state.lik_params[k].beta_hypers.ψ
 
@@ -53,13 +53,15 @@ function update_lik_params!(model::Model_PPMx)
 
         ## update beta hypers (could customize a function here to accommodate different shrinkage priors)
         model.state.lik_params[k].beta_hypers.ψ = update_ψ(model.state.lik_params[k].beta_hypers.ϕ, 
-            model.state.lik_params[k].beta, 
+            model.state.lik_params[k].beta ./ model.state.baseline.τ0, 
             model.state.lik_params[k].beta_hypers.τ)
         
         model.state.lik_params[k].beta_hypers.τ = update_τ(model.state.lik_params[k].beta_hypers.ϕ, 
-            model.state.lik_params[k].beta, 1.0/model.p)
+            model.state.lik_params[k].beta ./ model.state.baseline.τ0, 
+            1.0/model.p)
         
-        model.state.lik_params[k].beta_hypers.ϕ = update_ϕ(model.state.lik_params[k].beta, 1.0/model.p)
+        model.state.lik_params[k].beta_hypers.ϕ = update_ϕ(model.state.lik_params[k].beta ./ model.state.baseline.τ0, 
+            1.0/model.p)
 
         ## update sig, which preserves means to be modified in the update for means
         model.state.lik_params[k].sig, sig_upd_stats = shrinkSlice(model.state.lik_params[k].sig, 

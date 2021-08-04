@@ -6,6 +6,7 @@ using SpecialFunctions
 using StatsBase
 using Distributions
 
+include("types.jl")
 include("general.jl")
 
 include("cohesion.jl")

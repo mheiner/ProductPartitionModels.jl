@@ -3,9 +3,6 @@
 
 export Cohesion_PPM, Cohesion_CRP, log_coheseion;
 
-
-abstract type Cohesion_PPM end
-
 mutable struct Cohesion_CRP <: Cohesion_PPM
 
     α::Real
@@ -17,7 +14,8 @@ mutable struct Cohesion_CRP <: Cohesion_PPM
 end
 
 function Cohesion_CRP(α::Real, size::Int) 
-    (α <= 0.0 || size <= 0) ? error("Invalid cohesion parameters.") : new(α, size, log(α))
+    (α > 0.0 && size >= 0) || throw("Invalid cohesion parameters.")
+    Cohesion_CRP(α, size, log(α))
 end
 function Cohesion_CRP(α::Real, size::Int, logα::Bool)
     if logα

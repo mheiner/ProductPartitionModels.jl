@@ -1,32 +1,7 @@
 # similarity.jl
 
-export Similarity_PPMx, Similarity_NiG_indep, Similarity_PPMxStats, Similarity_NiG_indep_stats,
-log_similarity_nig;
+export Similarity_NiG_indep_stats, log_similarity;
 
-
-abstract type Similarity_PPMx end
-
-mutable struct Similarity_NiG_indep <: Similarity_PPMx
-    m0::Real 
-    sc_div0::Real
-    a0::Real
-    b0::Real
-
-    lsc_div0::Real
-    lga0::Real
-    lb0::Real
-
-    Similarity_NiG_indep(m0, sc_div0, a0, b0) = new(m0, sc_div0, a0, b0, 
-        log(sc_div0), SpecialFunctions.loggamma(a0), log(b0))
-end
-
-abstract type Similarity_PPMxStats end
-
-mutable struct Similarity_NiG_indep_stats <: Similarity_PPMxStats
-    n::Int
-    sumx::Real
-    sumx2::Real
-end
 
 function Similarity_NiG_indep_stats(x::Vector{T} where T <: Real)
     n = length(x)
@@ -41,8 +16,8 @@ function Similarity_NiG_indep_stats(x::Vector{Union{Missing, T}} where T <: Real
     n = length(obs_indx)
 
     if n > 0
-        sumx = sum(x)
-        sumx2 = sum( x.^2 )
+        sumx = sum(x[obs_indx])
+        sumx2 = sum( x[obs_indx].^2 )
     else
         sumx = 0
         sumx2 = 0

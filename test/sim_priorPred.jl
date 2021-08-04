@@ -55,10 +55,16 @@ similarity = Similarity_NiG_indep(0.0, 1.0, 4.0, 4.0)
 α = 0.5
 logα = log(α)
 
-C, K, S, lcohes, Xstat, similar = sim_partition_PPMx(logα, X, similarity)
+C, K, S, lcohes, Xstat, lsimilar = sim_partition_PPMx(logα, X, similarity)
 C
 K
 S
+
+## alternatively, fix C
+C = vcat(fill(1, 200), fill(2, 300), fill(3, 500))
+K = maximum(C)
+cohesion = Cohesion_CRP(logα, 0, true)
+lcohes, Xstat, lsimilar = get_lcohlsim(C, X, cohesion, similarity)
 
 ## G0; controls only y|x
 μ0 = 0.0
@@ -74,6 +80,10 @@ y
 obsXindx = [ ObsXIndx(X[i,:]) for i in 1:n ]
 likParams = [ LikParams_PPMxReg(μ[k], σ[k], β[k,:], Hypers_DirLap(randn(2), randn(2), 1.0)) for k in 1:K ]
 llik_all(y, X, C, obsXindx, likParams, Xstat, similarity)
+
+mod = Model_PPMx(y, X, C)
+
+
 
 
 xlim = [minimum(skipmissing(X[:,1])), maximum(skipmissing(X[:,1]))]

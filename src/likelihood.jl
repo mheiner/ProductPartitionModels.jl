@@ -1,41 +1,6 @@
 # likelihood.jl
 
-export Baseline_measure, Baseline_NormDLUnif, 
-Hypers_shrinkReg, Hypers_DirLap, LikParams_PPMxReg, 
-llik_k, llik_all;
-
-abstract type Baseline_measure end
-
-mutable struct Baseline_NormDLUnif <: Baseline_measure
-    μ0::Real 
-    σ0::Real
-
-    τ0::Real # global shrinkage 
-
-    upper_σ::Real
-
-    Baseline_NormDLUnif(μ0, σ0, τ0, upper_σ) = new(μ0, σ0, τ0, upper_σ)
-end
-
-abstract type Hypers_shrinkReg end
-
-mutable struct Hypers_DirLap{T <: Real} <: Hypers_shrinkReg
-    phi::Vector{T}
-    psi::Vector{T}
-    tau::Real
-end
-
-abstract type LikParams_PPMx end
-
-mutable struct LikParams_PPMxReg{T <: Real} <: LikParams_PPMx
-    mu::Real
-    sig::Real
-
-    beta::Vector{T}
-    beta_hypers::Hypers_shrinkReg
-
-    # LikParams_PPMxReg(mu, sig, beta, beta_hypers) = sig <= 0.0 ? error("St. deviation must be positive.") : new(mu, sig, beta, beta_hypers)
-end
+export llik_k, llik_all;
 
 function aux_moments_k(Xstats_k::Vector{Similarity_NiG_indep_stats}, similarity::Similarity_NiG_indep)
 
