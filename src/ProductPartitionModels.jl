@@ -17,6 +17,8 @@ include("slice_sample.jl")
 include("generalizedInverseGaussian.jl")
 include("DirichletLaplace_shrinkage.jl")
 
+include("update_lik_params.jl")
+
 include("simulate_prior.jl")
 
 end # module

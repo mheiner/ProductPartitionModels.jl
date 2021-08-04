@@ -25,7 +25,9 @@ mutable struct Hypers_DirLap{T <: Real} <: Hypers_shrinkReg
     tau::Real
 end
 
-mutable struct LikParams_PPMxReg{T <: Real}
+abstract type LikParams_PPMx end
+
+mutable struct LikParams_PPMxReg{T <: Real} <: LikParams_PPMx
     mu::Real
     sig::Real
 
@@ -62,9 +64,9 @@ function aux_moments_k(Xstats_k::Vector{Similarity_NiG_indep_stats}, similarity:
 
 end
 
-function llik_k(y_k::Vector{T} where T <: Real, X_k::Union{Matrix{T}, Matrix{Union{T, Missing}}} where T <: Real, 
+function llik_k(y_k::Vector{T}, X_k::Union{Matrix{T}, Matrix{Union{T, Missing}}}, 
     ObsXIndx_k::Vector{ObsXIndx}, lik_params_k::TT where TT <: LikParams_PPMxReg, Xstats_k::Vector{Similarity_NiG_indep_stats},
-    similarity::Similarity_NiG_indep)
+    similarity::Similarity_NiG_indep) where T <: Real
     
     aux_mean, aux_sd = aux_moments_k(Xstats_k, similarity) # each length-p vectors
 
@@ -73,35 +75,48 @@ function llik_k(y_k::Vector{T} where T <: Real, X_k::Union{Matrix{T}, Matrix{Uni
 
     llik_out = 0.0
 
+    means = Vector{T}(undef, n_k)
+    vars = Vector{T}(undef, n_k)
+
     for iii in 1:n_k
         
-        mean_now = lik_params_k.mu
+        means[iii] = deepcopy(lik_params_k.mu)
         
         xi = deepcopy(X_k[iii,:])
         if ObsXIndx_k[iii].n_obs > 0
             indx_xiobs = ObsXIndx_k[iii].indx_obs
             xiOc = xi[indx_xiobs] - aux_mean[indx_xiobs]
-            mean_now += xiOc'lik_params_k.beta[indx_xiobs]
+            means[iii] += xiOc'lik_params_k.beta[indx_xiobs]
         end
         
-        var_now = lik_params_k.sig^2
+        vars[iii] = lik_params_k.sig^2
 
         if ObsXIndx_k[iii].n_mis > 0
             indx_ximis = ObsXIndx_k[iii].indx_mis
-            var_now += sum( (aux_sd[indx_ximis] .* lik_params_k.beta[indx_ximis]).^2 )
+            vars[iii] += sum( (aux_sd[indx_ximis] .* lik_params_k.beta[indx_ximis]).^2 )
         end
 
-        llik_out += -0.5*log(2π) - 0.5*log(var_now) - 0.5*(y_k[iii] - mean_now)^2/var_now
+        llik_out += -0.5*log(2π) - 0.5*log(vars[iii]) - 0.5*(y_k[iii] - means[iii])^2/vars[iii]
 
     end
 
-    return llik_out
+    return llik_out, means, vars
+end
+function llik_k(y_k::Vector{T}, means::Vector{T}, vars::Vector{T}, sig_old::T, sig_new::T) where T <: Real
+    n_k = length(y_k)
+    vars_out = deepcopy(vars)
+    llik_out = 0.0
+    for iii in 1:n_k
+        vars_out[iii] -= sig_old^2 + sig_new^2
+        llik_out += -0.5*log(2π) - 0.5*log(vars_out[iii]) - 0.5*(y_k[iii] - means[iii])^2/vars_out[iii]
+    end
+    llik_out, means, vars_out
 end
 
-function llik_all(y::Vector{T} where T <: Real, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} where T <: Real,
+function llik_all(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     C::Vector{Int}, ObsXIndx::Vector{ObsXIndx}, 
     llik_params::Vector{TT} where TT <: LikParams_PPMxReg, Xstats::Vector{Vector{Similarity_NiG_indep_stats}},
-    similarity::Similarity_NiG_indep)
+    similarity::Similarity_NiG_indep) where T <: Real
 
     # n, p = size(X)
     K = maximum(C)
@@ -111,9 +126,8 @@ function llik_all(y::Vector{T} where T <: Real, X::Union{Matrix{T}, Matrix{Union
 
     for k in 1:K
         indx_k = findall(C.==k)
-        llik_out += llik_k(y[indx_k], X[indx_k,:], ObsXIndx[indx_k], llik_params[k], Xstats[k], similarity)
+        llik_out += llik_k(y[indx_k], X[indx_k,:], ObsXIndx[indx_k], llik_params[k], Xstats[k], similarity)[1]
     end
 
     return llik_out
 end
-

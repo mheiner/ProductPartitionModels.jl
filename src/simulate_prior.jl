@@ -83,7 +83,7 @@ function sim_lik(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} 
         ϕ = rand(Dirichlet(p, 1.0/p))
         τ = rand(Gamma(1.0, 2.0 * basemeasure.τ0))
         ψ = rand(Exponential(2.0), p)
-        β[k,:] = randn(p) .* τ .* ϕ .* ψ
+        β[k,:] = randn(p) .* τ .* ϕ .* sqrt.(ψ)
     end
 
     μ = randn(K) .* basemeasure.σ0 .+ basemeasure.μ0

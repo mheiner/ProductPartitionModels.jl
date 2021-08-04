@@ -29,10 +29,10 @@ sig_now = rand()*2.0
 
 for ii in 1:n_iter
 
-    b_now = ellipSlice(b_now, 
+    b_now, trash = ellipSlice(b_now, 
         prior_beta_mean, prior_beta_var,
         logtarget, TargetArgs_NormRegBeta(y, X, sig_now))
-    sig_now = shrinkSlice(sig_now, 0.0, prior_sig_upper,
+    sig_now, trash = shrinkSlice(sig_now, 0.0, prior_sig_upper,
         logtarget, TargetArgs_NormRegSig(y, X, b_now))
 
     sim_b[ii,:] = b_now

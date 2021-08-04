@@ -1,6 +1,6 @@
 # similarity.jl
 
-export Similarity_PPMx, Similarity_NiG_indep, Similarity_NiG_indep_stats,
+export Similarity_PPMx, Similarity_NiG_indep, Similarity_PPMxStats, Similarity_NiG_indep_stats,
 log_similarity_nig;
 
 
@@ -20,7 +20,9 @@ mutable struct Similarity_NiG_indep <: Similarity_PPMx
         log(sc_div0), SpecialFunctions.loggamma(a0), log(b0))
 end
 
-mutable struct Similarity_NiG_indep_stats <: Similarity_PPMx
+abstract type Similarity_PPMxStats end
+
+mutable struct Similarity_NiG_indep_stats <: Similarity_PPMxStats
     n::Int
     sumx::Real
     sumx2::Real
