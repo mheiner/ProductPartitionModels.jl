@@ -5,6 +5,10 @@ module ProductPartitionModels
 using SpecialFunctions
 using StatsBase
 using Distributions
+using Random, Random123
+# using LinearAlgebra
+using Distributed
+using Dates
 
 include("types.jl")
 include("general.jl")
@@ -21,5 +25,6 @@ include("DirichletLaplace_shrinkage.jl")
 include("update_lik_params.jl")
 
 include("simulate_prior.jl")
+include("mcmc.jl")
 
 end # module

@@ -1,7 +1,7 @@
-# sim_priorPred.jl
+# testMCMC.jl
 
-# using Plots
-# Plots.PlotlyBackend()
+using Plots
+Plots.PlotlyBackend()
 using Plotly # run pkg> activate to be outside the package
 
 using ProductPartitionModels
@@ -25,7 +25,7 @@ using StatsBase
 
 n = 1000
 p = 2
-nmis = 300
+nmis = 500
 nobs = n*p - nmis
 X = Matrix{Union{Missing, Float64}}(missing, n, p)
 obs_indx_sim = sample(1:(n*p), nobs; replace=false)
@@ -40,46 +40,33 @@ for i in (201):(500)
 end
 X
 
-# obs_indx = [ findall(.!ismissing.(X[i,:])) for i in 1:size(X,1) ]
-
-# X[1:5,:]
-# obs_indx[1:5]
-
-# X[(n-10+1):n,:]
-# obs_indx[(n-10+1):n]
-
-# [ mean(skipmissing(X[:,j])) for j in 1:size(X,2) ]
-
-similarity = Similarity_NiG_indep(0.0, 1.0, 4.0, 4.0)
-# similarity = Similarity_NiG_indep(0.0, 0.1, 1.0, 1.0)
-α = 0.5
-logα = log(α)
-
-C, K, S, lcohes, Xstat, lsimilar = sim_partition_PPMx(logα, X, similarity)
-C
-K
-S
+# C, K, S, lcohes, Xstat, lsimilar = sim_partition_PPMx(logα, X, similarity)
+# C
+# K
+# S
 
 ## alternatively, fix C
+α = 1.0
 C = vcat(fill(1, 200), fill(2, 300), fill(3, 500))
 K = maximum(C)
-cohesion = Cohesion_CRP(logα, 0, true)
+cohesion = Cohesion_CRP(log(α), 0, true)
+similarity = Similarity_NiG_indep(0.0, 0.1, 1.0, 1.0)
 lcohes, Xstat, lsimilar = get_lcohlsim(C, X, cohesion, similarity)
 
 ## G0; controls only y|x
 μ0 = 0.0
 σ0 = 20.0
-τ0 = 1.0 # scale of DL shrinkage
-upper_σ = 10.0
+τ0 = 5.0 # scale of DL shrinkage
+upper_σ = 3.0
 G0 = Baseline_NormDLUnif(μ0, σ0, τ0, upper_σ)
 
 y, μ, β, σ = sim_lik(C, X, similarity, Xstat, G0)
 
 y
+μ
+β
+σ
 
-obsXindx = [ ObsXIndx(X[i,:]) for i in 1:n ]
-likParams = [ LikParams_PPMxReg(μ[k], σ[k], β[k,:], Hypers_DirLap(randn(2), randn(2), 1.0)) for k in 1:K ]
-llik_all(y, X, C, obsXindx, likParams, Xstat, similarity)
 
 mod = Model_PPMx(y, X, C)
 fieldnames(typeof(mod))
@@ -92,20 +79,57 @@ mod.state.lik_params[1]
 mod.state.baseline
 mod.state.iter
 
+mod.state.baseline = deepcopy(G0)
+mod.state.cohesion = deepcopy(cohesion)
+mod.state.similarity = deepcopy(similarity)
 
+refresh!(mod.state, mod.y, mod.X, mod.obsXIndx)
+mod.state.llik
 
-xlim = [minimum(skipmissing(X[:,1])), maximum(skipmissing(X[:,1]))]
-ylim = [minimum(skipmissing(X[:,2])), maximum(skipmissing(X[:,2]))]
-zlim = [minimum(y), maximum(y)]
-layout = Layout( # broken?
-    Dict(
-    :scene => Dict(
-        :xaxis => Dict(:range => xlim), 
-        :yaxis => Dict(:range => ylim), 
-        :zaxis => Dict(:range => zlim)
-        )
-    )
+mcmc!(mod, 1000,
+    save=false,
+    thin=1,
+    n_procs=1,
+    report_filename="out_progress.txt",
+    report_freq=10000,
+    update=[:lik_params],
+    monitor=[:mu, :sig, :beta]
 )
+
+sims = mcmc!(mod, 1000,
+    save=true,
+    thin=1,
+    n_procs=1,
+    report_filename="out_progress.txt",
+    report_freq=10000,
+    update=[:lik_params],
+    monitor=[:mu, :sig, :beta]
+)
+
+sims[1]
+sims[1000]
+sims[2][:lik_params][2]
+mod.state.lik_params[1].mu
+
+
+sims_mu = [ sims[ii][:lik_params][kk][:mu] for ii in 1:length(sims), kk in 1:K ]
+plot(sims_mu)
+plot(sims_mu[:,1])
+μ
+
+sims_sig = [ sims[ii][:lik_params][kk][:sig] for ii in 1:length(sims), kk in 1:K ]
+plot(sims_sig)
+plot(sims_sig[:,1])
+σ
+
+sims_beta = [ sims[ii][:lik_params][kk][:beta][j] for ii in 1:length(sims), kk in 1:K, j in 1:p ]
+plot(reshape(sims_beta[:,1,:], (length(sims), p)))
+plot(reshape(sims_beta[:,2,:], (length(sims), p)))
+plot(reshape(sims_beta[:,3,:], (length(sims), p)))
+β
+
+plot(reshape(sims_beta[:,3,2], (length(sims))))
+
 
 indx_cc = findall( [ all(.!ismissing.(X[i,:])) for i in 1:n ] )
 indx_x1m = findall( [ ismissing(X[i,1]) & !ismissing(X[i,2]) for i in 1:n ] )

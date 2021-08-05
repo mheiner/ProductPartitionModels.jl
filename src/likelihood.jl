@@ -72,7 +72,8 @@ function llik_k(y_k::Vector{T}, means::Vector{T}, vars::Vector{T}, sig_old::T, s
     vars_out = deepcopy(vars)
     llik_out = 0.0
     for iii in 1:n_k
-        vars_out[iii] -= sig_old^2 + sig_new^2
+        vars_out[iii] -= sig_old^2
+        vars_out[iii] += sig_new^2
         llik_out += -0.5*log(2π) - 0.5*log(vars_out[iii]) - 0.5*(y_k[iii] - means[iii])^2/vars_out[iii]
     end
     llik_out, means, vars_out
@@ -80,7 +81,7 @@ end
 
 function llik_all(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     C::Vector{Int}, ObsXIndx::Vector{ObsXIndx}, 
-    llik_params::Vector{TT} where TT <: LikParams_PPMxReg, Xstats::Vector{Vector{Similarity_NiG_indep_stats}},
+    lik_params::Vector{TT} where TT <: LikParams_PPMxReg, Xstats::Vector{Vector{Similarity_NiG_indep_stats}},
     similarity::Similarity_NiG_indep) where T <: Real
 
     # n, p = size(X)
@@ -91,7 +92,7 @@ function llik_all(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
 
     for k in 1:K
         indx_k = findall(C.==k)
-        llik_out += llik_k(y[indx_k], X[indx_k,:], ObsXIndx[indx_k], llik_params[k], Xstats[k], similarity)[1]
+        llik_out += llik_k(y[indx_k], X[indx_k,:], ObsXIndx[indx_k], lik_params[k], Xstats[k], similarity)[1]
     end
 
     return llik_out

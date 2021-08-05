@@ -26,7 +26,7 @@ end
 mutable struct State_PPMx{T <: LikParams_PPMx, TT <: Baseline_measure, TTT <: Cohesion_PPM, TTTT <: Similarity_PPMx,
                           TR <: Real, T5 <: Similarity_PPMxStats}
     C::Vector{Int}
-    lik_params::T
+    lik_params::Vector{T}
 
     baseline::TT
     cohesion::TTT
@@ -36,6 +36,7 @@ mutable struct State_PPMx{T <: LikParams_PPMx, TT <: Baseline_measure, TTT <: Co
     Xstats::Vector{Vector{T5}}
     lsimilarities::Vector{Vector{TR}}
 
+    llik::TR
     iter::Int
 end
 
@@ -75,7 +76,7 @@ function init_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     lik_params = [ LikParams_PPMxReg(randn(), # mu
                             rand(), # sig
                             randn(p), # beta
-                            Hypers_DirLap(rand(Dirichlet(p, 1.0)), rand(Exponential(0.5), p), rand(Exponential(0.5*baseline.τ0))) # beta hypers
+                            Hypers_DirLap(rand(Dirichlet(p, 1.0)), rand(Exponential(0.5), p), rand(Exponential(0.5*baseline.tau0))) # beta hypers
                             ) 
                     for k in 1:K ]
     
@@ -84,17 +85,27 @@ function init_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
 
     lcohesions, Xstats, lsimilarities = get_lcohlsim(C, X, cohesion, similarity)
 
+    llik = 0.0
     iter = 0
 
-    return State_PPMx(C, lik_params, baseline, cohesion, similarity, lcohesions, Xstats, lsimilarities, iter)    
+    return State_PPMx(C, lik_params, baseline, cohesion, similarity, lcohesions, Xstats, lsimilarities, llik, iter)    
 end
 
-function refresh!(state::State_PPMx, X::Union{Matrix{T}, Matrix{Union{T, Missing}}}) where T <: Real
-    ## updates the calculated cohesions, Xstats, and similarity scores if any of C, baseline, lik_params, cohesion, or similarity change
+function refresh!(state::State_PPMx, y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}}, obsXIndx::Vector{ObsXIndx}, refresh_llik::Bool=true) where T <: Real
+    ## updates the log likelihood and calculated cohesions, Xstats, and similarity scores if any of C, baseline, lik_params, cohesion, or similarity change
 
     lcohes_upd, Xstats_upd, lsimil_upd = get_lcohlsim(state.C, X, state.cohesion, state.similarity)
 
-    return State_PPMx(state.C, state.lik_params, state.baseline, state.cohesion, state.similarity, lcohes_upd, Xstats_upd, lsimil_upd, state.iter)
+    if refresh_llik
+        llik = llik_all(y, X, state.C, obsXIndx, state.lik_params, Xstats_upd, state.similarity)
+        state.llik = llik # depends on C, lik_params
+    end
+
+    state.lcohesions = lcohes_upd # depends on C, cohesion
+    state.Xstats = Xstats_upd # depends on C
+    state.lsimilarities = lsimil_upd # depends on C, similarity
+    
+    return nothing
 end
 
 mutable struct Model_PPMx{T <: Real}
