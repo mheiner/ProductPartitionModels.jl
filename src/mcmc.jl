@@ -21,8 +21,7 @@ function postSimsInit(n_keep::Int, init_state::Union{State_PPMx},
 
     state = deepcopyFields(init_state, monitor_outer)
 
-    K = length(init_state.lik_params)
-    state[:lik_params] = [ deepcopyFields(init_state.lik_params[k], monitor_lik) for k = 1:K ]
+    state[:lik_params] = [ deepcopyFields(init_state.lik_params[1], monitor_lik) ]
 
     state[:llik] = 0.0
 
@@ -107,13 +106,12 @@ function mcmc!(model::Model_PPMx, n_keep::Int;
         for j in 1:thin
 
             if (:C in update_outer)
-
-                # refresh!(model.state, model.y, model.X, model.obsXIndx, false)
+                update_C!(model) # refreshes model state except llik
             end
 
             if up_lik
                 update_lik_params!(model)
-                # update_lik_params!(model.state, model.prior, model.y, update_mixcomps, n_procs=n_procs)
+                # update_lik_params!(model.state, model.prior, model.y, update_mixcomps, n_procs=n_procs) # if we want to go parallel at some point
             end
 
             model.state.iter += 1
@@ -130,10 +128,8 @@ function mcmc!(model::Model_PPMx, n_keep::Int;
             for field in monitor_outer
                 sims[i][field] = deepcopy(getfield(model.state, field))
             end
-            for k = 1:length(model.state.lik_params)
-                for field in monitor_lik
-                    sims[i][:lik_params][k][field] = deepcopy(getfield(model.state.lik_params[k], field))
-                end
+            if length(monitor_lik) > 0
+                sims[i][:lik_params] = [ deepcopyFields(model.state.lik_params[k], monitor_lik) for k in 1:length(model.state.lik_params) ]
             end
             sims[i][:llik] = llik_all(model.y, model.X, model.state.C, model.obsXIndx, 
                 model.state.lik_params, model.state.Xstats, model.state.similarity)

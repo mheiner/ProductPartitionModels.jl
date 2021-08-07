@@ -34,7 +34,7 @@ function update_lik_params!(model::Model_PPMx)
     K = maximum(model.state.C)
     prior_mean_beta = zeros(model.p)
 
-    for k in 1:K ## can parallelize
+    for k in 1:K ## can parallelize; would need to pass rng through updates (including slice functions and hyper updates)
 
         indx_k = findall(model.state.C.==k)
 

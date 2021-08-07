@@ -123,7 +123,7 @@ function Model_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}}
     n, p = size(X)
     n == length(y) || throw("X, y dimension mismatch.")
     obsXIndx = [ ObsXIndx(X[i,:]) for i in 1:n ]
-    state = init_PPMx(y, X, C_init)
+    state = init_PPMx(y, X, deepcopy(C_init))
 
-    return Model_PPMx(y, X, obsXIndx, n, p, state)
+    return Model_PPMx(deepcopy(y), deepcopy(X), obsXIndx, n, p, state)
 end

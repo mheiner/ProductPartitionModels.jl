@@ -71,6 +71,19 @@ function sim_partition_PPMx(logα::Real, X::Union{Matrix{T}, Matrix{Union{T, Mis
     return C, K_now, S, lcohesions, stats, lsimilarities
 end
 
+function simpri_lik_params(basemeasure::Baseline_NormDLUnif, p::Int)
+
+    ϕ = rand(Dirichlet(p, 1.0/p))
+    τ = rand(Gamma(1.0, 2.0 * basemeasure.tau0))
+    ψ = rand(Exponential(2.0), p)
+    β = randn(p) .* τ .* ϕ .* sqrt.(ψ)
+
+    μ = randn() .* basemeasure.σ0 .+ basemeasure.μ0
+    σ = rand() .* basemeasure.upper_σ
+
+    return LikParams_PPMxReg(μ, σ, β, Hypers_DirLap(ϕ, ψ, τ))
+end
+
 function sim_lik(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} where T <: Real, 
     similarity::Similarity_NiG_indep, Xstats::Vector{Vector{Similarity_NiG_indep_stats}}, basemeasure::Baseline_measure)
 
@@ -78,16 +91,10 @@ function sim_lik(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} 
     K = maximum(C)
     S = StatsBase.counts(C, K)
 
-    β = Matrix{Float64}(undef, K, p)
-    for k in 1:K
-        ϕ = rand(Dirichlet(p, 1.0/p))
-        τ = rand(Gamma(1.0, 2.0 * basemeasure.tau0))
-        ψ = rand(Exponential(2.0), p)
-        β[k,:] = randn(p) .* τ .* ϕ .* sqrt.(ψ)
-    end
-
-    μ = randn(K) .* basemeasure.σ0 .+ basemeasure.μ0
-    σ = rand(K) .* basemeasure.upper_σ
+    lik_params = [ simpri_lik_params(basemeasure, p) for k in 1:K ]
+    μ = [ lik_params[k].mu for k in 1:K ]
+    σ = [ lik_params[k].sig for k in 1:K ]
+    β = [ lik_params[k].beta[j] for k in 1:K, j in 1:p ]
 
     Xfill = deepcopy(X)
     y = Vector{Float64}(undef, n)
