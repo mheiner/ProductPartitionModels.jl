@@ -27,5 +27,6 @@ include("update_config.jl")
 
 include("simulate_prior.jl")
 include("mcmc.jl")
+include("postPred.jl")
 
 end # module

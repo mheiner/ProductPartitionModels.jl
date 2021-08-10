@@ -4,8 +4,8 @@ using ProductPartitionModels
 using StatsBase
 
 
-n = 100
-p = 5
+n = 200
+p = 2
 prop_mis = 0.5
 nmis = Int(floor(prop_mis*n*p))
 nobs = n*p - nmis
@@ -42,7 +42,7 @@ lcohes, Xstat, lsimilar = get_lcohlsim(C, X, cohesion, similarity)
 ## G0; controls only y|x
 μ0 = 0.0
 σ0 = 20.0
-τ0 = 2.0 # scale of DL shrinkage
+τ0 = 1.0 # scale of DL shrinkage
 upper_σ = 3.0
 G0 = Baseline_NormDLUnif(μ0, σ0, τ0, upper_σ)
 
@@ -164,7 +164,7 @@ trace2 = Plotly.scatter3d(Dict(
   :mode => "markers",
   :marker => Dict(:color => colors[C_use[indx_x2m]], :size => 5.0)
 ))
-plot([trace2])
+Plotly.plot([trace2])
 
 trace3 = Plotly.scatter3d(Dict(
   :x => zeros(length(indx_x2m)),
@@ -175,7 +175,7 @@ trace3 = Plotly.scatter3d(Dict(
   :mode => "markers",
   :marker => Dict(:color => colors[C_use[indx_x1m]], :size => 5.0)
 ))
-plot([trace3])
+Plotly.plot([trace3])
 
 
 trace4 = Plotly.scatter3d(Dict(
@@ -187,8 +187,34 @@ trace4 = Plotly.scatter3d(Dict(
   :mode => "markers",
   :marker => Dict(:color => colors[C_use[indx_allmiss]], :size => 5.0)
 ))
-plot([trace4])
+Plotly.plot([trace4])
 
 
+### test prediction
+
+## import from R?
+
+using RCall
+R"
+Xr = matrix(rnorm(20), ncol=2);
+Xr[sample(prod(dim(X)), 5)] = NA;
+Xr
+"
+
+@rget Xr # works!
+typeof(Xr)
+typeof(Xr) <: Union{Matrix{T}, Matrix{Union{T, Missing}}} where T <: Real
+Xrr = Matrix(Xr)
+typeof(Xrr) <: Union{Matrix{T}, Matrix{Union{T, Missing}}} where T <: Real
+
+Xrr[1,:] = [3.0, missing]
+
+Ypred, Cpred = postPred(Xrr, mod, sims)
+
+Xrr
+using RCall
+@rput Ypred
+StatsBase.counts(Cpred[:,1], 0:10)
+R"hist(Ypred[,1], breaks=20)"
 
 
