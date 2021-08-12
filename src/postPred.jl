@@ -21,8 +21,8 @@ function postPred(Xpred::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     Ypred = Matrix{typeof(model.y[1])}(undef, n_sim, n_pred)
 
     lcohes1 = log_cohesion(Cohesion_CRP(model.state.cohesion.logα, 1, true))
-    x_mean_empty = similarity.m0 # could do something else
-    x_sd_empty = sqrt(similarity.b0 / (similarity.a0 + 1.0) / similarity.sc_div0) # could do something else
+    x_mean_empty = model.state.similarity.m0 # could do something else
+    x_sd_empty = sqrt(model.state.similarity.b0 / (model.state.similarity.a0 + 1.0) / model.state.similarity.sc_div0) # could do something else
 
     for ii in 1:n_sim
 
