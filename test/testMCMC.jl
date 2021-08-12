@@ -4,7 +4,7 @@ using ProductPartitionModels
 using StatsBase
 
 
-n = 200
+n = 50
 p = 2
 prop_mis = 0.5
 nmis = Int(floor(prop_mis*n*p))
@@ -197,7 +197,7 @@ Plotly.plot([trace4])
 using RCall
 R"
 Xr = matrix(rnorm(20), ncol=2);
-Xr[sample(prod(dim(X)), 5)] = NA;
+Xr[sample(prod(dim(Xr)), 5)] = NA;
 Xr
 "
 

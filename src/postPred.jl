@@ -39,7 +39,7 @@ function postPred(Xpred::Union{Matrix{T}, Matrix{Union{T, Missing}}},
 
             for j in 1:model.p
 
-                n_fill = sum(ismissing.(X[Ck_indx, j]))
+                n_fill = sum(ismissing.(model.X[Ck_indx, j]))
                 
                 if n_fill < S[k]
                     xbar_now = Xstats[k][j].sumx / Xstats[k][j].n
