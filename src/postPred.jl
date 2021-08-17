@@ -135,7 +135,7 @@ function postPred(model::Model_PPMx,
 
     n_sim = length(sims)
 
-    Ypred = Matrix{typeof(model.y[1])}(undef, n_sim, n_pred)
+    Ypred = Matrix{typeof(model.y[1])}(undef, n_sim, model.n)
 
     x_mean_empty = model.state.similarity.m0 # could do something else
     x_sd_empty = sqrt(model.state.similarity.b0 / (model.state.similarity.a0 + 1.0) / model.state.similarity.sc_div0) # could do something else

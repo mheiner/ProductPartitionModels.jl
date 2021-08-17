@@ -146,10 +146,14 @@ plot(sims_sig0)
 mod.prior.baseline.sig0_upper
 σ0
 
-
 sims_tau0 = [ sims[ii][:baseline][:tau0] for ii in 1:length(sims) ]
 mod.state.baseline.tau0
 plot(sims_tau0[findall(sims_tau0 .< 5.0)])
+
+using Dates
+timestart = Dates.now()
+etr(timestart; n_iter_timed=1000, n_keep=1000, thin=10, outfilename="")
+
 
 using Plotly # run pkg> activate to be outside the package
 
@@ -210,6 +214,14 @@ Plotly.plot([trace4])
 
 
 ### test prediction
+
+## in sample
+
+Ypred_is = postPred(mod, sims)
+using RCall
+@rput Ypred_is y
+R"hist(Ypred_is[,89], breaks=20); abline(v=y[89], col='blue')"
+
 
 ## import from R?
 
