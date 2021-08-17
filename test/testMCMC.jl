@@ -4,9 +4,9 @@ using ProductPartitionModels
 using StatsBase
 
 
-n = 50
+n = 100
 p = 2
-prop_mis = 0.5
+prop_mis = 0.1
 nmis = Int(floor(prop_mis*n*p))
 nobs = n*p - nmis
 X = Matrix{Union{Missing, Float64}}(missing, n, p)
@@ -18,10 +18,10 @@ X
 Ctrue = vcat(fill(1, Int(floor(.5*n))), fill(2, Int(floor(.3*n))), fill(3, Int(floor(.2*n))))
 length(Ctrue) == n
 for i in findall(Ctrue .== 2)
-    X[i,1:2] += [3.0, -2.0]
+    X[i,1:2] += [9.0, -2.0]
 end
 for i in findall(Ctrue .== 3)
-  X[i,1:2] += [-1.0, 2.0]
+  X[i,1:2] += [-8.0, 3.0]
 end
 X
 
@@ -40,8 +40,8 @@ K = maximum(C)
 lcohes, Xstat, lsimilar = get_lcohlsim(C, X, cohesion, similarity)
 
 ## G0; controls only y|x
-μ0 = 0.0
-σ0 = 20.0
+μ0 = 3.0
+σ0 = 5.0
 τ0 = 1.0 # scale of DL shrinkage
 upper_σ = 3.0
 G0 = Baseline_NormDLUnif(μ0, σ0, τ0, upper_σ)
@@ -63,29 +63,32 @@ mod.state.baseline = deepcopy(G0)
 mod.state.cohesion = deepcopy(cohesion)
 mod.state.similarity = deepcopy(similarity)
 
+mod.prior
+mod.prior.baseline.tau02_sh = 49.0
+mod.prior.baseline.tau02_sc = 50.0
+
 refresh!(mod.state, mod.y, mod.X, mod.obsXIndx, true)
 mod.state.llik
+mod.state.baseline.tau0 = 1.0
 
 mcmc!(mod, 1000,
     save=false,
     thin=1,
     n_procs=1,
-    report_filename="out_progress.txt",
+    report_filename="",
     report_freq=100,
-    update=[:C, :lik_params],
-    monitor=[:C, :mu, :sig, :beta]
+    update=[:C, :lik_params, :mu0, :sig0, :tau0]
 )
 
 sims = mcmc!(mod, 1000,
     save=true,
     thin=1,
     n_procs=1,
-    report_filename="out_progress.txt",
+    report_filename="",
     report_freq=100,
-    update=[:C, :lik_params],
-    monitor=[:C, :mu, :sig, :beta]
+    update=[:C, :lik_params, :mu0, :sig0, :tau0],
+    monitor=[:C, :mu, :sig, :beta, :mu0, :sig0, :tau0]
 )
-
 
 sims[1]
 sims[1000]
@@ -118,7 +121,7 @@ plot(sims_mu[:,1])
 
 sims_sig = [ sims[ii][:lik_params][kk][:sig] for ii in 1:length(sims), kk in 1:Kuse ]
 plot(sims_sig)
-plot(sims_sig[:,1])
+plot(sims_sig[:,2])
 σ
 
 sims_beta = [ sims[ii][:lik_params][kk][:beta][j] for ii in 1:length(sims), kk in 1:Kuse, j in 1:p ]
@@ -130,7 +133,23 @@ plot(reshape(sims_beta[:,4,:], (length(sims), p)))
 
 plot(reshape(sims_beta[:,3,2], (length(sims))))
 
+sims_mu0 = [ sims[ii][:baseline][:mu0] for ii in 1:length(sims) ]
+mod.state.baseline.mu0
+plot(sims_mu0)
+mod.prior.baseline.mu0_mean
+mod.prior.baseline.mu0_sd
+μ0
 
+sims_sig0 = [ sims[ii][:baseline][:sig0] for ii in 1:length(sims) ]
+mod.state.baseline.sig0
+plot(sims_sig0)
+mod.prior.baseline.sig0_upper
+σ0
+
+
+sims_tau0 = [ sims[ii][:baseline][:tau0] for ii in 1:length(sims) ]
+mod.state.baseline.tau0
+plot(sims_tau0[findall(sims_tau0 .< 5.0)])
 
 using Plotly # run pkg> activate to be outside the package
 

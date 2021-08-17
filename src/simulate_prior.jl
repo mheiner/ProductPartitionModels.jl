@@ -78,8 +78,8 @@ function simpri_lik_params(basemeasure::Baseline_NormDLUnif, p::Int)
     ψ = rand(Exponential(2.0), p)
     β = randn(p) .* τ .* ϕ .* sqrt.(ψ)
 
-    μ = randn() .* basemeasure.σ0 .+ basemeasure.μ0
-    σ = rand() .* basemeasure.upper_σ
+    μ = randn() .* basemeasure.sig0 .+ basemeasure.mu0
+    σ = rand() .* basemeasure.upper_sig
 
     return LikParams_PPMxReg(μ, σ, β, Hypers_DirLap(ϕ, ψ, τ))
 end

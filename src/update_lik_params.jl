@@ -39,7 +39,7 @@ function update_lik_params!(model::Model_PPMx)
         indx_k = findall(model.state.C.==k)
 
         ## update betas, produces vectors of obs-specific means and variances
-        prior_var_beta = model.state.lik_params[k].beta_hypers.tau.^2 .* model.state.baseline.tau0^2 .*
+        prior_var_beta = model.state.lik_params[k].beta_hypers.tau^2 .* model.state.baseline.tau0^2 .*
             model.state.lik_params[k].beta_hypers.phi.^2 .* 
             model.state.lik_params[k].beta_hypers.psi
 
@@ -68,7 +68,7 @@ function update_lik_params!(model::Model_PPMx)
 
         ## update sig, which preserves means to be modified in the update for means
         model.state.lik_params[k].sig, sig_upd_stats = shrinkSlice(model.state.lik_params[k].sig, 
-            0.0, model.state.baseline.upper_σ,
+            0.0, model.state.baseline.upper_sig,
             llik_k_forSliceSig, 
             TargetArgs_sliceSig(model.y[indx_k], beta_upd_stats[2], beta_upd_stats[3], model.state.lik_params[k].sig)
         ) # sig_old doesn't need to be updated during slice sampler--this is just a computational trick
@@ -77,8 +77,8 @@ function update_lik_params!(model::Model_PPMx)
         yy = model.y[indx_k] - sig_upd_stats[2] .+ model.state.lik_params[k].mu
         one_div_var = 1.0 ./ sig_upd_stats[3]
         yy_div_var = yy .* one_div_var
-        v1 = 1.0 / (1.0/model.state.baseline.σ0^2 + sum(one_div_var))
-        m1 = v1 * (model.state.baseline.μ0 / model.state.baseline.σ0^2 + sum(yy_div_var))
+        v1 = 1.0 / (1.0/model.state.baseline.sig0^2 + sum(one_div_var))
+        m1 = v1 * (model.state.baseline.mu0 / model.state.baseline.sig0^2 + sum(yy_div_var))
         model.state.lik_params[k].mu = randn()*sqrt(v1) + m1
 
     end

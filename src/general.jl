@@ -1,6 +1,8 @@
 # general.jl
 
-export ObsXIndx, State_PPMx, get_lcohlsim, init_PPMx, refresh!, Model_PPMx;
+export ObsXIndx, State_PPMx, get_lcohlsim, init_PPMx, refresh!, 
+Prior_cohesion, Prior_similarity, Prior_baseline, Prior_baseline_NormDLUnif, Prior_PPMx, init_PPMx_prior,
+Model_PPMx;
 
 struct ObsXIndx
     n_obs::Int
@@ -108,6 +110,47 @@ function refresh!(state::State_PPMx, y::Vector{T}, X::Union{Matrix{T}, Matrix{Un
     return nothing
 end
 
+abstract type Prior_cohesion end
+abstract type Prior_similarity end
+abstract type Prior_baseline end
+
+mutable struct Prior_cohesion_CRP{TR <: Real} <: Prior_cohesion
+    alpha_sh::TR
+    alpha_sc::TR
+end
+
+mutable struct Prior_similarity_NiG_indep{TR <: Real} <: Prior_similarity
+end
+
+mutable struct Prior_baseline_NormDLUnif{TR <: Real} <: Prior_baseline
+    mu0_mean::TR
+    mu0_sd::TR
+    sig0_upper::TR
+    tau02_sh::TR
+    tau02_sc::TR
+end
+
+mutable struct Prior_PPMx
+    cohesion::Union{Nothing, Prior_cohesion}
+    similarity::Union{Nothing, Prior_similarity}
+    baseline::Union{Nothing, Prior_baseline}
+end
+
+function init_PPMx_prior()
+    return Prior_PPMx(nothing, nothing, Prior_baseline_NormDLUnif(0.0, 100.0, 10.0, 99.0, 100.0))
+end
+
+## testing unexpected behavior
+# abstract type Zoo end
+# mutable struct Foo{T <: Real} <: Zoo
+#     x::T
+#     y::T
+# end
+# mutable struct Bar{T <: Real}
+#     z::Foo{T}
+# end
+# Bar(Foo(0.0, 1.0))
+
 mutable struct Model_PPMx{T <: Real}
     y::Vector{T}
     X::Union{Matrix{T}, Matrix{Union{T, Missing}}}
@@ -116,6 +159,7 @@ mutable struct Model_PPMx{T <: Real}
     n::Int
     p::Int
 
+    prior::Prior_PPMx
     state::State_PPMx
 end
 
@@ -123,7 +167,9 @@ function Model_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}}
     n, p = size(X)
     n == length(y) || throw("X, y dimension mismatch.")
     obsXIndx = [ ObsXIndx(X[i,:]) for i in 1:n ]
+
+    prior = init_PPMx_prior()
     state = init_PPMx(y, X, deepcopy(C_init))
 
-    return Model_PPMx(deepcopy(y), deepcopy(X), obsXIndx, n, p, state)
+    return Model_PPMx(deepcopy(y), deepcopy(X), obsXIndx, n, p, prior, state)
 end

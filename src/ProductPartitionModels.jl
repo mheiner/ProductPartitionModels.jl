@@ -24,6 +24,7 @@ include("DirichletLaplace_shrinkage.jl")
 
 include("update_lik_params.jl")
 include("update_config.jl")
+include("update_baseline.jl")
 
 include("simulate_prior.jl")
 include("mcmc.jl")

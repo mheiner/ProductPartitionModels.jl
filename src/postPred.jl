@@ -126,3 +126,75 @@ function postPred(Xpred::Union{Matrix{T}, Matrix{Union{T, Missing}}},
 
     return Ypred, Cpred
 end
+function postPred(model::Model_PPMx,
+    sims::Vector{Dict{Symbol, Any}}) where T <: Real
+
+    ## currently assumes cohesion and similarity parameters are fixed
+    ## treats each input as the n+1th observation with no consideration of them clustering together
+    ## does not update the likelihood centering with the prediction obs, stats
+
+    n_sim = length(sims)
+
+    Ypred = Matrix{typeof(model.y[1])}(undef, n_sim, n_pred)
+
+    x_mean_empty = model.state.similarity.m0 # could do something else
+    x_sd_empty = sqrt(model.state.similarity.b0 / (model.state.similarity.a0 + 1.0) / model.state.similarity.sc_div0) # could do something else
+
+    for ii in 1:n_sim
+
+        lcohesions, Xstats, lsimilarities = get_lcohlsim(sims[ii][:C], model.X, model.state.cohesion, model.state.similarity)
+        K = length(lcohesions)
+        S = StatsBase.counts(sims[ii][:C], K)
+
+        Xbars = Matrix{typeof(model.y[1])}(undef, K, model.p)
+        Sds = Matrix{typeof(model.y[1])}(undef, K, model.p)
+
+        for k in 1:K
+
+            Ck_indx = findall(sims[ii][:C] .== k)
+
+            for j in 1:model.p
+
+                n_fill = sum(ismissing.(model.X[Ck_indx, j]))
+                
+                if n_fill < S[k]
+                    xbar_now = Xstats[k][j].sumx / Xstats[k][j].n
+                    mean_now = xbar_now # could do something else
+                    if Xstats[k][j].n > 1
+                        s2_now = (Xstats[k][j].sumx2 - Xstats[k][j].n * xbar_now^2) / (Xstats[k][j].n - 1.0)
+                        sd_now = sqrt(s2_now) # could do something else
+                    else
+                        sd_now = x_sd_empty
+                    end 
+                else
+                    mean_now = x_mean_empty
+                    sd_now = x_sd_empty
+                end
+
+                Xbars[k,j] = mean_now
+                Sds[k,j] = sd_now
+            end
+        end
+
+        for i in 1:model.n
+        # draw y value
+            C_i = sims[ii][:C][i]
+            mean_now = sims[ii][:lik_params][C_i][:mu]
+            sig2_now = sims[ii][:lik_params][C_i][:sig]^2
+
+            if model.obsXIndx[i].n_mis > 0
+                sig2_now += sum( (sims[ii][:lik_params][C_i][:beta][model.obsXIndx[i].indx_mis] .* Sds[C_i, model.obsXIndx[i].indx_mis]).^2 )
+            end
+
+            if model.obsXIndx[i].n_obs > 0
+                xc = model.X[i, model.obsXIndx[i].indx_obs] - Xbars[C_i, model.obsXIndx[i].indx_obs]
+                mean_now += xc' * sims[ii][:lik_params][C_i][:beta][model.obsXIndx[i].indx_obs]
+            end
+                
+            Ypred[ii, i] = randn() .* sqrt(sig2_now) + mean_now
+
+        end
+    end
+
+    return Ypred
+end

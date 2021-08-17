@@ -14,14 +14,16 @@ function deepcopyFields(state::T, fields::Vector{Symbol}) where T
 end
 
 function postSimsInit(n_keep::Int, init_state::Union{State_PPMx},
-    monitor::Vector{Symbol}=[:C, :mu, :sig, :beta])
+    monitor::Vector{Symbol}=[:C, :mu, :sig, :beta, :mu0, :sig0])
 
     monitor_outer = intersect(monitor, fieldnames(typeof(init_state)))
     monitor_lik = intersect(monitor, fieldnames(typeof(init_state.lik_params[1])))
+    monitor_base = intersect(monitor, fieldnames(typeof(init_state.baseline)))
 
     state = deepcopyFields(init_state, monitor_outer)
 
     state[:lik_params] = [ deepcopyFields(init_state.lik_params[1], monitor_lik) ]
+    state[:baseline] = [ deepcopyFields(init_state.baseline, monitor_base) ]
 
     state[:llik] = 0.0
 
@@ -32,39 +34,52 @@ end
 
 ## MCMC timing for benchmarks
 function timemod!(n::Int64, model::Union{Model_PPMx}, niter::Int, outfilename::String; n_procs=1, save=false)
-    outfile = open(outfilename, "a+")
+    externalfile = outfilename != ""
+    outfile = externalfile ? open(outfilename, "a+") : stdout
     write(outfile, "\ntiming for $(niter) iterations each with $(n_procs) parallel processes:\n")
     for i in 1:n
         tinfo = @timed mcmc!(model, niter, n_procs=n_procs, save=save)
         write(outfile, "trial $(i), elapsed: $(tinfo[2]) seconds, allocation: $(tinfo[3]/1.0e6) Megabytes\n")
     end
-    close(outfile)
+    if externalfile
+        close(outfile)
+    end
+    return nothing
 end
 
 ## estimate time remaining
 function etr(timestart::DateTime, n_keep::Int, thin::Int, outfilename::String)
+    externalfile = outfilename != ""
+    outfile = externalfile ? open(outfilename, "a+") : stdout
+
     timeendburn = now()
     durperiter = (timeendburn - timestart).value / 1.0e5 # in milliseconds
     milsecremaining = durperiter * (n_keep * thin)
     estimatedfinish = now() + Dates.Millisecond(Int64(round(milsecremaining)))
-    report_file = open(outfilename, "a+")
-    write(report_file, "Completed burn-in at $(durperiter/1.0e3*1000.0) seconds per 1000 iterations \n
+    write(outfile, "Completed burn-in at $(durperiter/1.0e3*1000.0) seconds per 1000 iterations \n
       $(durperiter/1.0e3/60.0*1000.0) minutes per 1000 iterations \n
       $(durperiter/1.0e3/60.0/60.0*1000.0) hours per 1000 iterations \n
       estimated completion time $(estimatedfinish)")
-    close(report_file)
+    if externalfile
+        close(outfile)
+    end
+    return nothing
 end
 function etr(timestart::DateTime; n_iter_timed::Int, n_keep::Int, thin::Int, outfilename::String)
+    externalfile = outfilename != ""
+    outfile = externalfile ? open(outfilename, "a+") : stdout
+
     timeendburn = now()
     durperiter = (timeendburn - timestart).value / float(n_iter_timed) # in milliseconds
     milsecremaining = durperiter * (n_keep * thin)
     estimatedfinish = now() + Dates.Millisecond(Int64(round(milsecremaining)))
-    report_file = open(outfilename, "a+")
-    write(report_file, "Completed burn-in at $(durperiter/1.0e3*1000.0) seconds per 1000 iterations \n
+    write(outfile, "Completed burn-in at $(durperiter/1.0e3*1000.0) seconds per 1000 iterations \n
       $(durperiter/1.0e3/60.0*1000.0) minutes per 1000 iterations \n
       $(durperiter/1.0e3/60.0/60.0*1000.0) hours per 1000 iterations \n
       estimated completion time $(estimatedfinish)")
-    close(report_file)
+    if externalfile
+        close(outfile)
+    end
 end
 
 
@@ -72,15 +87,16 @@ function mcmc!(model::Model_PPMx, n_keep::Int;
     save::Bool=true,
     thin::Int=1,
     n_procs::Int=1,
-    report_filename::String="out_progress.txt",
+    report_filename::String="",
     report_freq::Int=10000,
-    update::Vector{Symbol}=[:C, :lik_params],
-    monitor::Vector{Symbol}=[:C, :mu, :sig, :beta]
+    update::Vector{Symbol}=[:C, :lik_params, :mu0, :sig0],
+    monitor::Vector{Symbol}=[:C, :mu, :sig, :beta, :mu0, :sig0]
     )
 
     ## output files
-    report_file = open(report_filename, "a+")
-    write(report_file, "Commencing MCMC at $(Dates.now()) for $(n_keep * thin) iterations.\n")
+    externalfile = report_filename != ""
+    report_file = externalfile ? open(report_filename, "a+") : stdout
+    write(report_file, "Commencing MCMC at $(Dates.now()) on iteration $(model.state.iter) for $(n_keep * thin) iterations.\n")
 
     ## split update parameters
     update_outer = intersect(update, fieldnames(typeof(model.state)))
@@ -99,6 +115,7 @@ function mcmc!(model::Model_PPMx, n_keep::Int;
         sims = postSimsInit(n_keep, model.state, monitor)
         monitor_outer = intersect(monitor, fieldnames(typeof(model.state)))
         monitor_lik = intersect(monitor, fieldnames(typeof(model.state.lik_params[1])))
+        monitor_base = intersect(monitor, fieldnames(typeof(model.state.baseline)))
     end
 
     ## sampling
@@ -112,6 +129,11 @@ function mcmc!(model::Model_PPMx, n_keep::Int;
             if up_lik
                 update_lik_params!(model)
                 # update_lik_params!(model.state, model.prior, model.y, update_mixcomps, n_procs=n_procs) # if we want to go parallel at some point
+            end
+
+            if up_baseline
+                update_baseline!(model, update_baseline)
+                refresh!(model.state, model.y, model.X, model.obsXIndx, false)
             end
 
             model.state.iter += 1
@@ -131,6 +153,9 @@ function mcmc!(model::Model_PPMx, n_keep::Int;
             if length(monitor_lik) > 0
                 sims[i][:lik_params] = [ deepcopyFields(model.state.lik_params[k], monitor_lik) for k in 1:length(model.state.lik_params) ]
             end
+            if length(monitor_base) > 0
+                sims[i][:baseline] = deepcopyFields(model.state.baseline, monitor_base)
+            end
             sims[i][:llik] = llik_all(model.y, model.X, model.state.C, model.obsXIndx, 
                 model.state.lik_params, model.state.Xstats, model.state.similarity)
         end
@@ -140,7 +165,9 @@ function mcmc!(model::Model_PPMx, n_keep::Int;
     model.state.llik = llik_all(model.y, model.X, model.state.C, model.obsXIndx, 
                     model.state.lik_params, model.state.Xstats, model.state.similarity)
 
-    close(report_file)
+    if externalfile
+        close(report_file)
+    end
 
     if save
         return sims

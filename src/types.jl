@@ -36,12 +36,12 @@ end
 abstract type Baseline_measure end
 
 mutable struct Baseline_NormDLUnif <: Baseline_measure
-    μ0::Real 
-    σ0::Real
+    mu0::Real 
+    sig0::Real
 
-    tau0::Real # global shrinkage 
+    tau0::Real # global shrinkage scale
 
-    upper_σ::Real
+    upper_sig::Real
 end
 
 abstract type Hypers_shrinkReg end
