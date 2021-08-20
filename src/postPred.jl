@@ -70,12 +70,12 @@ function postPred(Xpred::Union{Matrix{T}, Matrix{Union{T, Missing}}},
                 sig2_now = sims[ii][:lik_params][C_i][:sig]^2
 
                 if obsXIndx_pred[i].n_mis > 0
-                    sig2_now += sum( (sims[ii][:lik_params][C_i][:beta][obsXIndx_pred[i].indx_mis] .* Sds[C_i, obsXIndx_pred[i].indx_mis]).^2 )
+                    sig2_now += sum( sims[ii][:lik_params][C_i][:beta][obsXIndx_pred[i].indx_mis].^2 )
                 end
 
                 if obsXIndx_pred[i].n_obs > 0
-                    xc = Xpred[i, obsXIndx_pred[i].indx_obs] - Xbars[C_i, obsXIndx_pred[i].indx_obs]
-                    mean_now += xc' * sims[ii][:lik_params][C_i][:beta][obsXIndx_pred[i].indx_obs]
+                    z = (Xpred[i, obsXIndx_pred[i].indx_obs] - Xbars[C_i, obsXIndx_pred[i].indx_obs]) ./ Sds[C_i, obsXIndx_pred[i].indx_obs]
+                    mean_now += z' * sims[ii][:lik_params][C_i][:beta][obsXIndx_pred[i].indx_obs]
                 end
                 
                 Ypred[ii, i] = randn() .* sqrt(sig2_now) + mean_now
@@ -86,12 +86,12 @@ function postPred(Xpred::Union{Matrix{T}, Matrix{Union{T, Missing}}},
                 sig2_now = lik_params_new.sig^2
 
                 if obsXIndx_pred[i].n_mis > 0
-                    sig2_now += sum( ( lik_params_new.beta[obsXIndx_pred[i].indx_mis] .* x_sd_empty).^2 )
+                    sig2_now += sum( lik_params_new.beta[obsXIndx_pred[i].indx_mis].^2 )
                 end
 
                 if obsXIndx_pred[i].n_obs > 0
-                    xc = Xpred[i, obsXIndx_pred[i].indx_obs] .- x_mean_empty
-                    mean_now += xc' * lik_params_new.beta[obsXIndx_pred[i].indx_obs]
+                    z = (Xpred[i, obsXIndx_pred[i].indx_obs] .- x_mean_empty) ./ x_sd_empty
+                    mean_now += z' * lik_params_new.beta[obsXIndx_pred[i].indx_obs]
                 end
                 
                 Ypred[ii, i] = randn() .* sqrt(sig2_now) + mean_now
@@ -133,12 +133,12 @@ function postPred(model::Model_PPMx,
             sig2_now = sims[ii][:lik_params][C_i][:sig]^2
 
             if model.obsXIndx[i].n_mis > 0
-                sig2_now += sum( (sims[ii][:lik_params][C_i][:beta][model.obsXIndx[i].indx_mis] .* Sds[C_i, model.obsXIndx[i].indx_mis]).^2 )
+                sig2_now += sum( sims[ii][:lik_params][C_i][:beta][model.obsXIndx[i].indx_mis].^2 )
             end
 
             if model.obsXIndx[i].n_obs > 0
-                xc = model.X[i, model.obsXIndx[i].indx_obs] - Xbars[C_i, model.obsXIndx[i].indx_obs]
-                mean_now += xc' * sims[ii][:lik_params][C_i][:beta][model.obsXIndx[i].indx_obs]
+                z = ( model.X[i, model.obsXIndx[i].indx_obs] - Xbars[C_i, model.obsXIndx[i].indx_obs] ) ./ Sds[C_i, model.obsXIndx[i].indx_obs]
+                mean_now += z' * sims[ii][:lik_params][C_i][:beta][model.obsXIndx[i].indx_obs]
             end
                 
             Ypred[ii, i] = randn() .* sqrt(sig2_now) + mean_now

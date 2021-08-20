@@ -4,7 +4,7 @@ using ProductPartitionModels
 using StatsBase
 
 
-n = 100
+n = 200
 p = 2
 prop_mis = 0.3
 nmis = Int(floor(prop_mis*n*p))
@@ -64,8 +64,8 @@ mod.state.cohesion = deepcopy(cohesion)
 mod.state.similarity = deepcopy(similarity)
 
 mod.prior
-mod.prior.baseline.tau02_sh = 49.0
-mod.prior.baseline.tau02_sc = 50.0
+# mod.prior.baseline.tau02_sh = 49.0 # got rid of this
+# mod.prior.baseline.tau02_sc = 50.0
 
 refresh!(mod.state, mod.y, mod.X, mod.obsXIndx, true)
 mod.state.llik
@@ -74,16 +74,16 @@ mod.state.baseline.tau0 = 1.0
 using Dates
 timestart = Dates.now()
 
-mcmc!(mod, 500,
+mcmc!(mod, 1000,
     save=false,
     thin=1,
     n_procs=1,
     report_filename="",
     report_freq=100,
-    update=[:C, :lik_params, :mu0, :sig0] #, :tau0]
+    update=[:C, :lik_params, :mu0, :sig0]
 )
 
-etr(timestart; n_iter_timed=500, n_keep=1000, thin=1, outfilename="")
+etr(timestart; n_iter_timed=1000, n_keep=1000, thin=1, outfilename="")
 
 sims = mcmc!(mod, 1000,
     save=true,
@@ -91,8 +91,8 @@ sims = mcmc!(mod, 1000,
     n_procs=1,
     report_filename="",
     report_freq=100,
-    update=[:C, :lik_params, :mu0, :sig0], #, :tau0],
-    monitor=[:C, :mu, :sig, :beta, :mu0, :sig0] #, :tau0]
+    update=[:C, :lik_params, :mu0, :sig0], 
+    monitor=[:C, :mu, :sig, :beta, :mu0, :sig0]
 )
 
 sims[1]
@@ -152,9 +152,9 @@ plot(sims_sig0)
 mod.prior.baseline.sig0_upper
 σ0
 
-sims_tau0 = [ sims[ii][:baseline][:tau0] for ii in 1:length(sims) ]
-mod.state.baseline.tau0
-plot(sims_tau0[findall(sims_tau0 .< 5.0)])
+# sims_tau0 = [ sims[ii][:baseline][:tau0] for ii in 1:length(sims) ]
+# mod.state.baseline.tau0
+# plot(sims_tau0[findall(sims_tau0 .< 5.0)])
 
 
 using Plotly # run pkg> activate to be outside the package

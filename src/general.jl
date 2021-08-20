@@ -126,8 +126,6 @@ mutable struct Prior_baseline_NormDLUnif{TR <: Real} <: Prior_baseline
     mu0_mean::TR
     mu0_sd::TR
     sig0_upper::TR
-    tau02_sh::TR
-    tau02_sc::TR
 end
 
 mutable struct Prior_PPMx
@@ -137,7 +135,7 @@ mutable struct Prior_PPMx
 end
 
 function init_PPMx_prior()
-    return Prior_PPMx(nothing, nothing, Prior_baseline_NormDLUnif(0.0, 100.0, 10.0, 99.0, 100.0))
+    return Prior_PPMx(nothing, nothing, Prior_baseline_NormDLUnif(0.0, 100.0, 10.0))
 end
 
 ## testing unexpected behavior

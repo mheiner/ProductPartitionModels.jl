@@ -35,19 +35,6 @@ function update_sig0!(base::Baseline_NormDLUnif, mu_vec::Vector{T}, prior::Prior
     return nothing
 end
 
-function update_tau0!(base::Baseline_NormDLUnif, lik_params::Vector{LikParams_PPMxReg{TR}}, prior::Prior_baseline_NormDLUnif) where TR <: Real
-    K = length(lik_params)
-    beta_all = vcat([ deepcopy(lik_params[k].beta) for k in 1:K ]...)
-    var_fixed_beta = vcat([ lik_params[k].beta_hypers.tau^2 .*
-            lik_params[k].beta_hypers.phi.^2 .* 
-            lik_params[k].beta_hypers.psi for k in 1:K ]...)
-    sh1 = prior.tau02_sh + 0.5*length(beta_all)
-    sc1 = prior.tau02_sc + 0.5*sum( beta_all.^2 ./ var_fixed_beta )
-
-    base.tau0 = sqrt( rand( Distributions.InverseGamma(sh1, sc1) ) )
-    return nothing
-end
-
 function update_baseline!(model::Model_PPMx, update_params::Vector{Symbol})
 
     K = length(model.state.lik_params)
@@ -62,10 +49,5 @@ function update_baseline!(model::Model_PPMx, update_params::Vector{Symbol})
         update_sig0!(model.state.baseline, mu_vec, model.prior.baseline)
     end
 
-    if :tau0 in update_params
-        update_tau0!(model.state.baseline, model.state.lik_params, model.prior.baseline)
-    end
-
     return nothing
 end
-

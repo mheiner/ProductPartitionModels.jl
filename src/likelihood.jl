@@ -118,15 +118,15 @@ function llik_k(y_k::Vector{T}, X_k::Union{Matrix{T}, Matrix{Union{T, Missing}}}
         xi = deepcopy(X_k[iii,:])
         if ObsXIndx_k[iii].n_obs > 0
             indx_xiobs = ObsXIndx_k[iii].indx_obs
-            xiOc = xi[indx_xiobs] - aux_mean[indx_xiobs]
-            means[iii] += xiOc'lik_params_k.beta[indx_xiobs]
+            ziO = (xi[indx_xiobs] - aux_mean[indx_xiobs]) ./ aux_sd[indx_xiobs]
+            means[iii] += ziO'lik_params_k.beta[indx_xiobs]
         end
         
         vars[iii] = lik_params_k.sig^2
 
         if ObsXIndx_k[iii].n_mis > 0
             indx_ximis = ObsXIndx_k[iii].indx_mis
-            vars[iii] += sum( (aux_sd[indx_ximis] .* lik_params_k.beta[indx_ximis]).^2 )
+            vars[iii] += sum( lik_params_k.beta[indx_ximis].^2 )
         end
 
         llik_out += -0.5*log(2π) - 0.5*log(vars[iii]) - 0.5*(y_k[iii] - means[iii])^2/vars[iii]
