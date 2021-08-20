@@ -103,30 +103,18 @@ function sim_lik(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} 
 
         C_indx_now = findall(C.==k)
 
+        mean_now, sd_now = aux_moments_k(Xstats[k], similarity)
+
         for j in 1:p
 
             fill_indx = findall(ismissing.(X[C_indx_now,j]))
             n_fill = length(fill_indx)
-            
-            if n_fill < S[k]
-                xbar_now = Xstats[k][j].sumx / Xstats[k][j].n
-                mean_now = xbar_now # could do something else
-                if Xstats[k][j].n > 1
-                    s2_now = (Xstats[k][j].sumx2 - Xstats[k][j].n * xbar_now^2) / (Xstats[k][j].n - 1.0)
-                    sd_now = sqrt(s2_now) # could do something else
-                else
-                    sd_now = sqrt(similarity.b0 / (similarity.a0 + 1.0) / similarity.sc_div0) # could do something else
-                end 
-            else
-                mean_now = similarity.m0 # could do something else
-                sd_now = sqrt(similarity.b0 / (similarity.a0 + 1.0) / similarity.sc_div0) # could do something else
-            end
 
             # center Xfill
-            Xfill[C_indx_now,j] .-= mean_now
+            Xfill[C_indx_now,j] .-= mean_now[j]
 
             if n_fill > 0
-                Xfill[C_indx_now[fill_indx],j] = randn(n_fill) .* sd_now
+                Xfill[C_indx_now[fill_indx],j] = randn(n_fill) .* sd_now[j]
             end
 
         end

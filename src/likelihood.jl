@@ -2,7 +2,37 @@
 
 export llik_k, llik_all;
 
+# function aux_moments_k(Xstats_k::Vector{Similarity_NiG_indep_stats}, similarity::Similarity_NiG_indep)
+
+#   # raw moments, no prior unless empty
+
+#     p = length(Xstats_k)
+
+#     mean_out = Vector{Float64}(undef, p)
+#     sd_out = Vector{Float64}(undef, p)
+
+#     for j in 1:p
+#         if Xstats_k[j].n > 0
+#             xbar_now = Xstats_k[j].sumx / Xstats_k[j].n
+#             mean_out[j] = xbar_now # could do something else
+#             if Xstats_k[j].n > 1
+#                 s2_now = (Xstats_k[j].sumx2 - Xstats_k[j].n * xbar_now^2) / (Xstats_k[j].n - 1.0)
+#                 sd_out[j] = sqrt(s2_now) # could do something else
+#             else
+#                 sd_out[j] = sqrt(similarity.b0 / (similarity.a0 + 1.0) / similarity.sc_div0) # could do something else
+#             end 
+#         else
+#             mean_out[j] = similarity.m0 # could do something else
+#             sd_out[j] = sqrt(similarity.b0 / (similarity.a0 + 1.0) / similarity.sc_div0) # could do something else
+#         end
+#     end
+
+#     return (mean_out, sd_out)
+# end
+
 function aux_moments_k(Xstats_k::Vector{Similarity_NiG_indep_stats}, similarity::Similarity_NiG_indep)
+
+    ## Unit-information N-IG priors
 
     p = length(Xstats_k)
 
@@ -10,24 +40,62 @@ function aux_moments_k(Xstats_k::Vector{Similarity_NiG_indep_stats}, similarity:
     sd_out = Vector{Float64}(undef, p)
 
     for j in 1:p
-        if Xstats_k[j].n > 0
-            xbar_now = Xstats_k[j].sumx / Xstats_k[j].n
-            mean_out[j] = xbar_now # could do something else
-            if Xstats_k[j].n > 1
-                s2_now = (Xstats_k[j].sumx2 - Xstats_k[j].n * xbar_now^2) / (Xstats_k[j].n - 1.0)
-                sd_out[j] = sqrt(s2_now) # could do something else
-            else
-                sd_out[j] = sqrt(similarity.b0 / (similarity.a0 + 1.0) / similarity.sc_div0) # could do something else
-            end 
+        n_now = float(Xstats_k[j].n)
+        np1 = n_now + 1.0
+        mean_out[j] = (similarity.m0 + Xstats_k[j].sumx) / np1 # could do something else
+
+        s0 = similarity.b0 / similarity.a0 # prior harmonic mean
+
+        if n_now > 0.0
+            xbar_now = Xstats_k[j].sumx / n_now
+            ss_now = (Xstats_k[j].sumx2 - n_now * xbar_now^2)
+            sd_out[j] = sqrt( ( s0 + ss_now + n_now * (xbar_now - similarity.m0)^2 / np1 ) / np1 ) # could do something else
         else
-            mean_out[j] = similarity.m0 # could do something else
-            sd_out[j] = sqrt(similarity.b0 / (similarity.a0 + 1.0) / similarity.sc_div0) # could do something else
+            sd_out[j] = sqrt(s0)
         end
     end
 
     return (mean_out, sd_out)
-
 end
+
+# function aux_moments_k(Xstats_k::Vector{Similarity_NiG_indep_stats}, similarity::Similarity_NiG_indep, phi::T=1.00, n0::T=1.00) where T <: Real
+
+#     ## general N-IG priors
+
+#     p = length(Xstats_k)
+
+#     mean_out = Vector{Float64}(undef, p)
+#     sd_out = Vector{Float64}(undef, p)
+
+#     for j in 1:p
+#         n_now = float(Xstats_k[j].n)
+        
+#         npphi = n_now + phi
+#         npn0 = n_now + n0
+#         s0 = similarity.b0 / similarity.a0 # prior harmonic mean
+
+#         mean_out[j] = (phi * similarity.m0 + Xstats_k[j].sumx) / npphi # could do something else
+
+#         # sd_out[j] = sqrt( (n0 * s0 + ss_now + n_now * phi * (xbar_now - similarity.m0)^2 / npphi ) / npn0 ) # could do something else
+        
+#         if n_now > 0.0 # this distinction is for some reason ?? crucial to success; without it, clusters glob together, ESPECIALLY obs with any missing covariates. phi and n0 don't seem to matter much if we have this clause ==> because I was dividing by zero...
+#             xbar_now = Xstats_k[j].sumx / n_now
+#             ss_now = (Xstats_k[j].sumx2 - n_now * xbar_now^2)
+#             sd_out[j] = sqrt( (n0 * s0 + ss_now + n_now * phi * (xbar_now - similarity.m0)^2 / npphi ) / npn0 ) 
+#             # sd_out[j] = sqrt( (n0 * s0 + ss_now ) / npn0 ) # could do something else
+#         else
+#             sd_out[j] = sqrt(s0)
+#         end
+
+#     end
+
+#     return (mean_out, sd_out)
+# end
+
+function aux_moments_empty(similarity::Similarity_NiG_indep)
+    return ( deepcopy(similarity.m0), sqrt(similarity.b0 / similarity.a0) )
+end
+
 
 function llik_k(y_k::Vector{T}, X_k::Union{Matrix{T}, Matrix{Union{T, Missing}}}, 
     ObsXIndx_k::Vector{ObsXIndx}, lik_params_k::TT where TT <: LikParams_PPMxReg, Xstats_k::Vector{Similarity_NiG_indep_stats},

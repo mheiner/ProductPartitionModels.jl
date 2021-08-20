@@ -11,6 +11,9 @@ abstract type Cohesion_PPM end
 abstract type Similarity_PPMx end
 
 mutable struct Similarity_NiG_indep <: Similarity_PPMx
+
+    # IG(sig2; shape=a, scale=b) N(mu; mean=mu0, variance=sig2/sc_div0)
+
     m0::Real 
     sc_div0::Real
     a0::Real

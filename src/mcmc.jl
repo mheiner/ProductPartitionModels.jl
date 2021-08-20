@@ -59,7 +59,7 @@ function etr(timestart::DateTime, n_keep::Int, thin::Int, outfilename::String)
     write(outfile, "Completed burn-in at $(durperiter/1.0e3*1000.0) seconds per 1000 iterations \n
       $(durperiter/1.0e3/60.0*1000.0) minutes per 1000 iterations \n
       $(durperiter/1.0e3/60.0/60.0*1000.0) hours per 1000 iterations \n
-      estimated completion time $(estimatedfinish)")
+      estimated completion time $(estimatedfinish) \n")
     if externalfile
         close(outfile)
     end
@@ -76,7 +76,7 @@ function etr(timestart::DateTime; n_iter_timed::Int, n_keep::Int, thin::Int, out
     write(outfile, "Completed burn-in at $(durperiter/1.0e3*1000.0) seconds per 1000 iterations \n
       $(durperiter/1.0e3/60.0*1000.0) minutes per 1000 iterations \n
       $(durperiter/1.0e3/60.0/60.0*1000.0) hours per 1000 iterations \n
-      estimated completion time $(estimatedfinish)")
+      estimated completion time $(estimatedfinish) \n")
     if externalfile
         close(outfile)
     end

@@ -21,8 +21,7 @@ function postPred(Xpred::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     Ypred = Matrix{typeof(model.y[1])}(undef, n_sim, n_pred)
 
     lcohes1 = log_cohesion(Cohesion_CRP(model.state.cohesion.logα, 1, true))
-    x_mean_empty = model.state.similarity.m0 # could do something else
-    x_sd_empty = sqrt(model.state.similarity.b0 / (model.state.similarity.a0 + 1.0) / model.state.similarity.sc_div0) # could do something else
+    x_mean_empty, x_sd_empty = aux_moments_empty(model.state.similarity)
 
     for ii in 1:n_sim
 
@@ -34,30 +33,7 @@ function postPred(Xpred::Union{Matrix{T}, Matrix{Union{T, Missing}}},
         Sds = Matrix{typeof(model.y[1])}(undef, K, model.p)
 
         for k in 1:K
-
-            Ck_indx = findall(sims[ii][:C] .== k)
-
-            for j in 1:model.p
-
-                n_fill = sum(ismissing.(model.X[Ck_indx, j]))
-                
-                if n_fill < S[k]
-                    xbar_now = Xstats[k][j].sumx / Xstats[k][j].n
-                    mean_now = xbar_now # could do something else
-                    if Xstats[k][j].n > 1
-                        s2_now = (Xstats[k][j].sumx2 - Xstats[k][j].n * xbar_now^2) / (Xstats[k][j].n - 1.0)
-                        sd_now = sqrt(s2_now) # could do something else
-                    else
-                        sd_now = x_sd_empty
-                    end 
-                else
-                    mean_now = x_mean_empty
-                    sd_now = x_sd_empty
-                end
-
-                Xbars[k,j] = mean_now
-                Sds[k,j] = sd_now
-            end
+            Xbars[k,:], Sds[k,:] = aux_moments_k(Xstats[k], model.state.similarity)
         end
 
         for i in 1:n_pred
@@ -137,9 +113,6 @@ function postPred(model::Model_PPMx,
 
     Ypred = Matrix{typeof(model.y[1])}(undef, n_sim, model.n)
 
-    x_mean_empty = model.state.similarity.m0 # could do something else
-    x_sd_empty = sqrt(model.state.similarity.b0 / (model.state.similarity.a0 + 1.0) / model.state.similarity.sc_div0) # could do something else
-
     for ii in 1:n_sim
 
         lcohesions, Xstats, lsimilarities = get_lcohlsim(sims[ii][:C], model.X, model.state.cohesion, model.state.similarity)
@@ -150,30 +123,7 @@ function postPred(model::Model_PPMx,
         Sds = Matrix{typeof(model.y[1])}(undef, K, model.p)
 
         for k in 1:K
-
-            Ck_indx = findall(sims[ii][:C] .== k)
-
-            for j in 1:model.p
-
-                n_fill = sum(ismissing.(model.X[Ck_indx, j]))
-                
-                if n_fill < S[k]
-                    xbar_now = Xstats[k][j].sumx / Xstats[k][j].n
-                    mean_now = xbar_now # could do something else
-                    if Xstats[k][j].n > 1
-                        s2_now = (Xstats[k][j].sumx2 - Xstats[k][j].n * xbar_now^2) / (Xstats[k][j].n - 1.0)
-                        sd_now = sqrt(s2_now) # could do something else
-                    else
-                        sd_now = x_sd_empty
-                    end 
-                else
-                    mean_now = x_mean_empty
-                    sd_now = x_sd_empty
-                end
-
-                Xbars[k,j] = mean_now
-                Sds[k,j] = sd_now
-            end
+            Xbars[k,:], Sds[k,:] = aux_moments_k(Xstats[k], model.state.similarity)
         end
 
         for i in 1:model.n

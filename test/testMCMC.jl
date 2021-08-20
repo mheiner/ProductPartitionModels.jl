@@ -6,7 +6,7 @@ using StatsBase
 
 n = 100
 p = 2
-prop_mis = 0.1
+prop_mis = 0.3
 nmis = Int(floor(prop_mis*n*p))
 nobs = n*p - nmis
 X = Matrix{Union{Missing, Float64}}(missing, n, p)
@@ -21,7 +21,7 @@ for i in findall(Ctrue .== 2)
     X[i,1:2] += [9.0, -2.0]
 end
 for i in findall(Ctrue .== 3)
-  X[i,1:2] += [-8.0, 3.0]
+  X[i,1:2] += [-8.0, 6.0]
 end
 X
 
@@ -29,7 +29,7 @@ X
 logα = log(α)
 cohesion = Cohesion_CRP(logα, 0, true)
 # similarity = Similarity_NiG_indep(0.0, 0.1, 1.0, 1.0)
-similarity = Similarity_NiG_indep(0.0, 0.5, 4.0, 4.0)
+similarity = Similarity_NiG_indep(0.0, 0.1, 4.0, 4.0)
 C = deepcopy(Ctrue)
 # C, K, S, lcohes, Xstat, lsimilar = sim_partition_PPMx(logα, X, similarity)
 # C
@@ -48,7 +48,7 @@ G0 = Baseline_NormDLUnif(μ0, σ0, τ0, upper_σ)
 
 y, μ, β, σ = sim_lik(C, X, similarity, Xstat, G0)
 
-y
+# y
 μ
 β
 σ
@@ -71,14 +71,19 @@ refresh!(mod.state, mod.y, mod.X, mod.obsXIndx, true)
 mod.state.llik
 mod.state.baseline.tau0 = 1.0
 
-mcmc!(mod, 1000,
+using Dates
+timestart = Dates.now()
+
+mcmc!(mod, 500,
     save=false,
     thin=1,
     n_procs=1,
     report_filename="",
     report_freq=100,
-    update=[:C, :lik_params, :mu0, :sig0, :tau0]
+    update=[:C, :lik_params, :mu0, :sig0] #, :tau0]
 )
+
+etr(timestart; n_iter_timed=500, n_keep=1000, thin=1, outfilename="")
 
 sims = mcmc!(mod, 1000,
     save=true,
@@ -86,8 +91,8 @@ sims = mcmc!(mod, 1000,
     n_procs=1,
     report_filename="",
     report_freq=100,
-    update=[:C, :lik_params, :mu0, :sig0, :tau0],
-    monitor=[:C, :mu, :sig, :beta, :mu0, :sig0, :tau0]
+    update=[:C, :lik_params, :mu0, :sig0], #, :tau0],
+    monitor=[:C, :mu, :sig, :beta, :mu0, :sig0] #, :tau0]
 )
 
 sims[1]
@@ -109,7 +114,8 @@ plot(sims_llik)
 plot(sims_K)
 plot(sims_S)
 
-[ sims[ii][:C][54] for ii in 1:length(sims) ]
+[ sims[ii][:C][18] for ii in 1:length(sims) ]
+counts([ sims[ii][:C][57] for ii in 1:length(sims) ])
 
 ## monitoring lik_params is only useful if C is not changing
 Kuse = 3
@@ -149,10 +155,6 @@ mod.prior.baseline.sig0_upper
 sims_tau0 = [ sims[ii][:baseline][:tau0] for ii in 1:length(sims) ]
 mod.state.baseline.tau0
 plot(sims_tau0[findall(sims_tau0 .< 5.0)])
-
-using Dates
-timestart = Dates.now()
-etr(timestart; n_iter_timed=1000, n_keep=1000, thin=10, outfilename="")
 
 
 using Plotly # run pkg> activate to be outside the package
@@ -200,7 +202,6 @@ trace3 = Plotly.scatter3d(Dict(
 ))
 Plotly.plot([trace3])
 
-
 trace4 = Plotly.scatter3d(Dict(
   :x => zeros(length(indx_allmiss)),
   :y => zeros(length(indx_allmiss)),
@@ -220,8 +221,10 @@ Plotly.plot([trace4])
 Ypred_is = postPred(mod, sims)
 using RCall
 @rput Ypred_is y
-R"hist(Ypred_is[,89], breaks=20); abline(v=y[89], col='blue')"
-
+R"hist(Ypred_is[,90], breaks=20); abline(v=y[90], col='blue')"
+R"intv = apply(Ypred_is, 2, quantile, c(0.05, 0.95))"
+R"cover = y < intv[2,] & y > intv[1,]"
+R"mean(cover)"
 
 ## import from R?
 
@@ -238,7 +241,7 @@ typeof(Xr) <: Union{Matrix{T}, Matrix{Union{T, Missing}}} where T <: Real
 Xrr = Matrix(Xr)
 typeof(Xrr) <: Union{Matrix{T}, Matrix{Union{T, Missing}}} where T <: Real
 
-Xrr[1,:] = [3.0, missing]
+Xrr[1,:] = [-5.0, missing]
 
 Ypred, Cpred = postPred(Xrr, mod, sims)
 
