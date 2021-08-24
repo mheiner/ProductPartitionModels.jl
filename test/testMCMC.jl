@@ -6,7 +6,7 @@ using StatsBase
 
 n = 200
 p = 2
-prop_mis = 0.3
+prop_mis = 0.5
 nmis = Int(floor(prop_mis*n*p))
 nobs = n*p - nmis
 X = Matrix{Union{Missing, Float64}}(missing, n, p)
@@ -121,21 +121,21 @@ counts([ sims[ii][:C][57] for ii in 1:length(sims) ])
 Kuse = 3
 
 sims_mu = [ sims[ii][:lik_params][kk][:mu] for ii in 1:length(sims), kk in 1:Kuse ]
+μ
 plot(sims_mu)
 plot(sims_mu[:,1])
-μ
 
 sims_sig = [ sims[ii][:lik_params][kk][:sig] for ii in 1:length(sims), kk in 1:Kuse ]
+σ
 plot(sims_sig)
 plot(sims_sig[:,2])
-σ
 
 sims_beta = [ sims[ii][:lik_params][kk][:beta][j] for ii in 1:length(sims), kk in 1:Kuse, j in 1:p ]
+β
 plot(reshape(sims_beta[:,1,:], (length(sims), p)))
 plot(reshape(sims_beta[:,2,:], (length(sims), p)))
 plot(reshape(sims_beta[:,3,:], (length(sims), p)))
 plot(reshape(sims_beta[:,4,:], (length(sims), p)))
-β
 
 plot(reshape(sims_beta[:,3,2], (length(sims))))
 
