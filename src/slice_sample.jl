@@ -41,7 +41,7 @@ end
 # logtarget is assumed to return a tuple with the target value as first output
 function ellipSlice(x::Vector{T}, mu::Vector{T}, sig2::Vector{T},
     logtarget::Function, logtarget_args::TargetArgs, 
-    maxiter::Int=1000) where T <: Real
+    maxiter::Int=5000) where T <: Real
 
     L = length(x)
     length(mu) == length(sig2) == L || throw("All arguments must have same length.")
@@ -81,7 +81,7 @@ end
 # Figure 5 from Neal (2003)
 # logtarget is assumed to return a tuple with the target value as first output
 function shrinkSlice(x::Real, L::Real, R::Real,
-    logtarget::Function, logtarget_args::TargetArgs, maxiter::Int=1000)
+    logtarget::Function, logtarget_args::TargetArgs, maxiter::Int=5000)
 
     lt = logtarget(x, logtarget_args)
     lz = lt[1] + log(rand())

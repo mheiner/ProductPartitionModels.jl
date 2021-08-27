@@ -90,7 +90,8 @@ function mcmc!(model::Model_PPMx, n_keep::Int;
     report_filename::String="",
     report_freq::Int=10000,
     update::Vector{Symbol}=[:C, :lik_params, :mu0, :sig0],
-    monitor::Vector{Symbol}=[:C, :mu, :sig, :beta, :mu0, :sig0]
+    monitor::Vector{Symbol}=[:C, :mu, :sig, :beta, :mu0, :sig0],
+    slice_max_iter::Int=5000
     )
 
     ## output files
@@ -127,7 +128,7 @@ function mcmc!(model::Model_PPMx, n_keep::Int;
             end
 
             if up_lik
-                update_lik_params!(model)
+                update_lik_params!(model, slice_max_iter)
                 # update_lik_params!(model.state, model.prior, model.y, update_mixcomps, n_procs=n_procs) # if we want to go parallel at some point
             end
 

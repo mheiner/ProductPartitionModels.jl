@@ -29,7 +29,7 @@ function llik_k_forSliceSig(sig_cand::Real, args::TargetArgs_sliceSig)
     return llik_k(args.y_k, args.means, args.vars, args.sig_old, sig_cand)
 end
 
-function update_lik_params!(model::Model_PPMx)
+function update_lik_params!(model::Model_PPMx, sliceiter::Int)
 
     K = maximum(model.state.C)
     prior_mean_beta = zeros(model.p)
@@ -48,7 +48,8 @@ function update_lik_params!(model::Model_PPMx)
             prior_mean_beta, prior_var_beta,
             llik_k_forEsliceBeta, 
             TargetArgs_EsliceBetas(model.y[indx_k], model.X[indx_k,:], model.obsXIndx[indx_k], 
-                model.state.lik_params[k], model.state.Xstats[k], model.state.similarity)
+                model.state.lik_params[k], model.state.Xstats[k], model.state.similarity),
+            sliceiter
         )
 
         ## update beta hypers (could customize a function here to accommodate different shrinkage priors)
@@ -70,7 +71,8 @@ function update_lik_params!(model::Model_PPMx)
         model.state.lik_params[k].sig, sig_upd_stats = shrinkSlice(model.state.lik_params[k].sig, 
             0.0, model.state.baseline.upper_sig,
             llik_k_forSliceSig, 
-            TargetArgs_sliceSig(model.y[indx_k], beta_upd_stats[2], beta_upd_stats[3], model.state.lik_params[k].sig)
+            TargetArgs_sliceSig(model.y[indx_k], beta_upd_stats[2], beta_upd_stats[3], model.state.lik_params[k].sig),
+            sliceiter
         ) # sig_old doesn't need to be updated during slice sampler--this is just a computational trick
 
         ## update mu
