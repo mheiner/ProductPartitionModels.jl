@@ -1,8 +1,8 @@
 # slice_sample.jl
 
-export TargetArgs, 
-TargetArgs_NormRegBeta, TargetArgs_NormRegSig, 
-logtarget, 
+export TargetArgs,
+TargetArgs_NormRegBeta, TargetArgs_NormRegSig,
+logtarget,
 ellipSlice, shrinkSlice;
 
 abstract type TargetArgs end
@@ -40,7 +40,7 @@ end
 # Algorithm 1 from Nishihara, Murray, Adams (2014)
 # logtarget is assumed to return a tuple with the target value as first output
 function ellipSlice(x::Vector{T}, mu::Vector{T}, sig2::Vector{T},
-    logtarget::Function, logtarget_args::TargetArgs, 
+    logtarget::Function, logtarget_args::TargetArgs,
     maxiter::Int=5000) where T <: Real
 
     L = length(x)
@@ -82,6 +82,8 @@ end
 # logtarget is assumed to return a tuple with the target value as first output
 function shrinkSlice(x::Real, L::Real, R::Real,
     logtarget::Function, logtarget_args::TargetArgs, maxiter::Int=5000)
+
+    ((x > L) && (x < R)) || throw("Slice sampler input value outside of support.")
 
     lt = logtarget(x, logtarget_args)
     lz = lt[1] + log(rand())

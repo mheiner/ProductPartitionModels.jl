@@ -3,6 +3,12 @@
 using ProductPartitionModels
 using StatsBase
 
+using RCall
+R"load('~/Documents/research/PPMx_missing/data/MSPE_ncov_10_missType_MAR_perMiss_0_dataType_1_data_1.RData')"
+R"load('~/Documents/research/PPMx_missing/data/MSPE_ncov_10_missType_MAR_perMiss_0.1_dataType_1_data_1.RData')"
+@rget ytn Xmat Xpred
+y = deepcopy(ytn)
+X = Matrix(deepcopy(Xmat))
 
 n = 200
 p = 2
@@ -25,11 +31,13 @@ for i in findall(Ctrue .== 3)
 end
 X
 
-α = 0.5
+# α = 0.5
+α = 1.0
 logα = log(α)
 cohesion = Cohesion_CRP(logα, 0, true)
+similarity = Similarity_NiG_indep(0.0, 0.5, 4.0, 2.0)
 # similarity = Similarity_NiG_indep(0.0, 0.1, 1.0, 1.0)
-similarity = Similarity_NiG_indep(0.0, 0.1, 4.0, 4.0)
+# similarity = Similarity_NiG_indep(0.0, 0.1, 4.0, 4.0)
 C = deepcopy(Ctrue)
 # C, K, S, lcohes, Xstat, lsimilar = sim_partition_PPMx(logα, X, similarity)
 # C
@@ -40,10 +48,10 @@ K = maximum(C)
 lcohes, Xstat, lsimilar = get_lcohlsim(C, X, cohesion, similarity)
 
 ## G0; controls only y|x
-μ0 = 3.0
+μ0 = 0.0
 σ0 = 5.0
 τ0 = 1.0 # scale of DL shrinkage
-upper_σ = 3.0
+upper_σ = 10.0
 G0 = Baseline_NormDLUnif(μ0, σ0, τ0, upper_σ)
 
 y, μ, β, σ = sim_lik(C, X, similarity, Xstat, G0)
@@ -54,7 +62,7 @@ y, μ, β, σ = sim_lik(C, X, similarity, Xstat, G0)
 σ
 
 # mod = Model_PPMx(y, X, C)
-mod = Model_PPMx(y, X, 0) # C_init = 0 --> n clusters ; 1 --> 1 cluster
+mod = Model_PPMx(y, X, 0, init_lik_rand=false) # C_init = 0 --> n clusters ; 1 --> 1 cluster
 fieldnames(typeof(mod))
 fieldnames(typeof(mod.state))
 mod.state.C
@@ -80,7 +88,8 @@ mcmc!(mod, 1000,
     n_procs=1,
     report_filename="",
     report_freq=100,
-    update=[:C, :lik_params, :mu0, :sig0]
+    update=[:C, :mu, :sig, :mu0, :sig0]
+    # update=[:C, :mu, :sig, :beta, :mu0, :sig0]
 )
 
 etr(timestart; n_iter_timed=1000, n_keep=1000, thin=1, outfilename="")
@@ -91,7 +100,8 @@ sims = mcmc!(mod, 1000,
     n_procs=1,
     report_filename="",
     report_freq=100,
-    update=[:C, :lik_params, :mu0, :sig0], 
+    update=[:C, :mu, :sig, :mu0, :sig0],
+    # update=[:C, :mu, :sig, :beta, :mu0, :sig0],
     monitor=[:C, :mu, :sig, :beta, :mu0, :sig0]
 )
 
@@ -103,6 +113,7 @@ mod.state.lik_params[1].mu
 sims_llik = [ sims[ii][:llik] for ii in 1:length(sims) ]
 sims_K = [ maximum(sims[ii][:C]) for ii in 1:length(sims) ]
 Kmax = maximum(sims_K)
+C_mat = permutedims( hcat( [ sims[ii][:C] for ii in 1:length(sims) ]...) )
 sims_S = permutedims( hcat( [ counts(sims[ii][:C], Kmax) for ii in 1:length(sims) ]...) )
 sims_Sord = permutedims( hcat( [ sort(counts(sims[ii][:C], maximum(sims_K)), rev=true) for ii in 1:length(sims) ]...) )
 
@@ -118,8 +129,9 @@ plot(sims_S)
 counts([ sims[ii][:C][57] for ii in 1:length(sims) ])
 
 ## monitoring lik_params is only useful if C is not changing
-Kuse = 3
+Kuse = 1
 
+sims_mu_mat = [ sims[ii][:lik_params][sims[ii][:C][i]][:mu] for ii in 1:length(sims), i in 1:mod.n ]
 sims_mu = [ sims[ii][:lik_params][kk][:mu] for ii in 1:length(sims), kk in 1:Kuse ]
 μ
 plot(sims_mu)
@@ -130,6 +142,8 @@ sims_sig = [ sims[ii][:lik_params][kk][:sig] for ii in 1:length(sims), kk in 1:K
 plot(sims_sig)
 plot(sims_sig[:,2])
 
+p = size(X,2)
+sims_beta_array = [ sims[ii][:lik_params][sims[ii][:C][i]][:beta][kk] for ii in 1:length(sims), i in 1:mod.n, kk in 1:mod.p ]
 sims_beta = [ sims[ii][:lik_params][kk][:beta][j] for ii in 1:length(sims), kk in 1:Kuse, j in 1:p ]
 β
 plot(reshape(sims_beta[:,1,:], (length(sims), p)))
@@ -250,5 +264,3 @@ using RCall
 @rput Ypred
 StatsBase.counts(Cpred[:,1], 0:10)
 R"hist(Ypred[,1], breaks=20)"
-
-

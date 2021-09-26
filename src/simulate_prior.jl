@@ -3,7 +3,7 @@
 
 export sim_partition_PPMx, sim_lik;
 
-function sim_partition_PPMx(logα::Real, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} where T <: Real, 
+function sim_partition_PPMx(logα::Real, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} where T <: Real,
     similarity::Similarity_PPMx)
 
     n, p = size(X)
@@ -83,8 +83,36 @@ function simpri_lik_params(basemeasure::Baseline_NormDLUnif, p::Int)
 
     return LikParams_PPMxReg(μ, σ, β, Hypers_DirLap(ϕ, ψ, τ))
 end
+function simpri_lik_params(basemeasure::Baseline_NormDLUnif, p::Int, lik_params_template::LikParams_PPMx, whichsim::Vector{Symbol})
 
-function sim_lik(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} where T <: Real, 
+    if (:beta in whichsim)
+        ϕ = rand(Dirichlet(p, 1.0/p))
+        τ = rand(Gamma(1.0, 2.0 * basemeasure.tau0))
+        ψ = rand(Exponential(2.0), p)
+        β = randn(p) .* τ .* ϕ .* sqrt.(ψ)
+    else
+        ϕ = deepcopy(lik_params_template.beta_hypers.phi)
+        τ = deepcopy(lik_params_template.beta_hypers.tau)
+        ψ = deepcopy(lik_params_template.beta_hypers.psi)
+        β = deepcopy(lik_params_template.beta)
+    end
+
+    if (:mu in whichsim)
+        μ = randn() .* basemeasure.sig0 .+ basemeasure.mu0
+    else
+        μ = deepcopy(lik_params_template.mu)
+    end
+
+    if (:sig in whichsim)
+        σ = rand() .* basemeasure.upper_sig
+    else
+        σ = deepcopy(lik_params_template.sig)
+    end
+
+    return LikParams_PPMxReg(μ, σ, β, Hypers_DirLap(ϕ, ψ, τ))
+end
+
+function sim_lik(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} where T <: Real,
     similarity::Similarity_NiG_indep, Xstats::Vector{Vector{Similarity_NiG_indep_stats}}, basemeasure::Baseline_measure)
 
     n, p = size(X)
@@ -124,6 +152,5 @@ function sim_lik(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} 
 
     end
 
-    return y, μ, β, σ 
+    return y, μ, β, σ
 end
-

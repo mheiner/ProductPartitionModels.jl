@@ -89,7 +89,7 @@ function mcmc!(model::Model_PPMx, n_keep::Int;
     n_procs::Int=1,
     report_filename::String="",
     report_freq::Int=10000,
-    update::Vector{Symbol}=[:C, :lik_params, :mu0, :sig0],
+    update::Vector{Symbol}=[:C, :mu, :sig, :beta, :mu0, :sig0],
     monitor::Vector{Symbol}=[:C, :mu, :sig, :beta, :mu0, :sig0],
     slice_max_iter::Int=5000
     )
@@ -102,7 +102,7 @@ function mcmc!(model::Model_PPMx, n_keep::Int;
     ## split update parameters
     update_outer = intersect(update, fieldnames(typeof(model.state)))
     # update_lik = intersect(update, setdiff( fieldnames(typeof(model.state.lik_params[1])), [:beta_hypers]))
-    update_lik = intersect(update, [:lik_params])
+    update_lik = intersect(update, [:mu, :sig, :beta])
     up_lik = length(update_lik) > 0
     update_baseline = intersect(update, fieldnames(typeof(model.state.baseline)))
     up_baseline = length(update_baseline) > 0
@@ -124,23 +124,23 @@ function mcmc!(model::Model_PPMx, n_keep::Int;
         for j in 1:thin
 
             if (:C in update_outer)
-                update_C!(model) # refreshes model state except llik
+                update_C!(model, update_lik) # refreshes model state except llik
             end
 
             if up_lik
-                update_lik_params!(model, slice_max_iter)
+                update_lik_params!(model, update_lik, slice_max_iter)
                 # update_lik_params!(model.state, model.prior, model.y, update_mixcomps, n_procs=n_procs) # if we want to go parallel at some point
             end
 
             if up_baseline
-                update_baseline!(model, update_baseline)
+                update_baseline!(model, update_baseline, slice_max_iter)
                 refresh!(model.state, model.y, model.X, model.obsXIndx, false)
             end
 
             model.state.iter += 1
             if model.state.iter % report_freq == 0
                 write(report_file, "Iter $(model.state.iter) at $(Dates.now())\n")
-                model.state.llik = llik_all(model.y, model.X, model.state.C, model.obsXIndx, 
+                model.state.llik = llik_all(model.y, model.X, model.state.C, model.obsXIndx,
                     model.state.lik_params, model.state.Xstats, model.state.similarity)
                 write(report_file, "Log-likelihood $(model.state.llik)\n")
             end
@@ -157,13 +157,13 @@ function mcmc!(model::Model_PPMx, n_keep::Int;
             if length(monitor_base) > 0
                 sims[i][:baseline] = deepcopyFields(model.state.baseline, monitor_base)
             end
-            sims[i][:llik] = llik_all(model.y, model.X, model.state.C, model.obsXIndx, 
+            sims[i][:llik] = llik_all(model.y, model.X, model.state.C, model.obsXIndx,
                 model.state.lik_params, model.state.Xstats, model.state.similarity)
         end
 
     end
 
-    model.state.llik = llik_all(model.y, model.X, model.state.C, model.obsXIndx, 
+    model.state.llik = llik_all(model.y, model.X, model.state.C, model.obsXIndx,
                     model.state.lik_params, model.state.Xstats, model.state.similarity)
 
     if externalfile
@@ -177,6 +177,3 @@ function mcmc!(model::Model_PPMx, n_keep::Int;
     end
 
 end
-
-
-

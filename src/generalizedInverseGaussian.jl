@@ -186,7 +186,7 @@ function _gigqdf(x::Real, λ::Real, β::Real)
     (x^(λ - 1)) * exp(-β * (x + 1 / x) / 2)
 end
 
-function _hormann(λ::Real, β::Real, maxiter=1000)
+function _hormann(λ::Real, β::Real, maxiter=2000)
     # compute bounding rectangles
     m = β / (1 - λ + sqrt((1 - λ)^2 + β^2))  # mode
     x0 = β / (1 - λ)
@@ -236,7 +236,7 @@ function _hormann(λ::Real, β::Real, maxiter=1000)
     error("Reached maxiter of Hormann method with λ=$(λ) and β=$(β)")
 end
 
-function _rou(λ::Real, β::Real, maxiter=1000)
+function _rou(λ::Real, β::Real, maxiter=2000)
     # compute bounding rectangle
     m = β / (1 - λ + sqrt((1 - λ)^2 + β^2))  # mode
     xpos = (1 + λ + sqrt((1 + λ)^2 + β^2)) / β
@@ -258,7 +258,7 @@ function _rou(λ::Real, β::Real, maxiter=1000)
     error("Reached maxiter of ratio of uniforms method with λ=$(λ) and β=$(β)")
 end
 
-function _rou_shift(λ::Real, β::Real, maxiter=1000)
+function _rou_shift(λ::Real, β::Real, maxiter=2000)
     # compute bounding rectangle
     m = (λ - 1 + sqrt((λ - 1)^2 + β^2)) / β  # mode
     a = -2(λ + 1) / β - m

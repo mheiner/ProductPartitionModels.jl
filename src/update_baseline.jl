@@ -1,6 +1,6 @@
 # update_baseline.jl
 
-# export ; 
+# export ;
 
 function update_mu0!(base::Baseline_NormDLUnif, mu_vec::Vector{T}, prior::Prior_baseline_NormDLUnif) where T <: Real
     n = length(mu_vec)
@@ -28,25 +28,25 @@ function logtarget(sig::Real, args::TargetArgs_NormSigUnif)
     return out, ss
 end
 
-function update_sig0!(base::Baseline_NormDLUnif, mu_vec::Vector{T}, prior::Prior_baseline_NormDLUnif) where T <: Real
+function update_sig0!(base::Baseline_NormDLUnif, mu_vec::Vector{T}, prior::Prior_baseline_NormDLUnif, sliceiter::Int) where T <: Real
     sigout, lt = shrinkSlice(base.sig0, 0.0, prior.sig0_upper,
-                    logtarget, TargetArgs_NormSigUnif(mu_vec, base.mu0))
+                    logtarget, TargetArgs_NormSigUnif(mu_vec, base.mu0),
+                    sliceiter)
     base.sig0 = sigout
     return nothing
 end
 
-function update_baseline!(model::Model_PPMx, update_params::Vector{Symbol})
+function update_baseline!(model::Model_PPMx, update_params::Vector{Symbol}, sliceiter::Int)
 
     K = length(model.state.lik_params)
+    mu_vec = [ model.state.lik_params[k].mu for k in 1:K ]
 
     if :mu0 in update_params
-        mu_vec = [ model.state.lik_params[k].mu for k in 1:K ]
         update_mu0!(model.state.baseline, mu_vec, model.prior.baseline)
     end
 
     if :sig0 in update_params
-        mu_vec = [ model.state.lik_params[k].mu for k in 1:K ]
-        update_sig0!(model.state.baseline, mu_vec, model.prior.baseline)
+        update_sig0!(model.state.baseline, mu_vec, model.prior.baseline, sliceiter)
     end
 
     return nothing

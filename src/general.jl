@@ -1,6 +1,6 @@
 # general.jl
 
-export ObsXIndx, State_PPMx, get_lcohlsim, init_PPMx, refresh!, 
+export ObsXIndx, State_PPMx, get_lcohlsim, init_PPMx, refresh!,
 Prior_cohesion, Prior_similarity, Prior_baseline, Prior_baseline_NormDLUnif, Prior_PPMx, init_PPMx_prior,
 Model_PPMx;
 
@@ -42,14 +42,14 @@ mutable struct State_PPMx{T <: LikParams_PPMx, TT <: Baseline_measure, TTT <: Co
     iter::Int
 end
 
-function get_lcohlsim(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}}, 
+function get_lcohlsim(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     cohesion::TT, similarity::TTT) where {T <: Real, TT <: Cohesion_PPM, TTT <: Similarity_PPMx}
     ## calculates log cohesions, Xstats, and log similarity scores if any C, cohesion, and similarity; see similarity.jl and cohesion.jl
 
     p = size(X, 2)
     K = maximum(C)
     S = StatsBase.counts(C, K)
-    
+
     lcohesions = [ log_cohesion(Cohesion_CRP(cohesion.logα, S[k], true)) for k in 1:K ]
     Xstats = [ [ Similarity_NiG_indep_stats(X[findall(C .== k), j]) for j in 1:p ] for k in 1:K ]
     lsimilarities = [ [ log_similarity(similarity, Xstats[k][j]) for j in 1:p ] for k in 1:K ]
@@ -57,11 +57,13 @@ function get_lcohlsim(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missin
     lcohesions, Xstats, lsimilarities
 end
 
-function init_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}}, C_init::Union{Int, Vector{Int}}=0) where T <: Real
+function init_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
+    C_init::Union{Int, Vector{Int}}=0;
+    lik_rand::Bool=true) where T <: Real
 
     n, p = size(X)
     n == length(y) || throw("X, y dimension mismatch.")
-    
+
     if C_init == 0
         C = collect(1:n)
     elseif C_init == 1
@@ -73,15 +75,24 @@ function init_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     K = maximum(C)
     S = StatsBase.counts(C, K)
 
-    baseline = Baseline_NormDLUnif(0.0, 1000.0, 1.0, 10.0)
-    
-    lik_params = [ LikParams_PPMxReg(randn(), # mu
-                            rand(), # sig
-                            randn(p), # beta
-                            Hypers_DirLap(rand(Dirichlet(p, 1.0)), rand(Exponential(0.5), p), rand(Exponential(0.5*baseline.tau0))) # beta hypers
-                            ) 
-                    for k in 1:K ]
-    
+    baseline = Baseline_NormDLUnif(0.0, 5.0, 1.0, 10.0)
+
+    if lik_rand
+        lik_params = [ LikParams_PPMxReg(randn(), # mu
+                                rand(), # sig
+                                randn(p), # beta
+                                Hypers_DirLap(rand(Dirichlet(p, 1.0)), rand(Exponential(0.5), p), rand(Exponential(0.5*baseline.tau0))) # beta hypers
+                                )
+                        for k in 1:K ]
+    else
+        lik_params = [ LikParams_PPMxReg(0.0, # mu
+                                1.0, # sig
+                                zeros(p), # beta
+                                Hypers_DirLap(fill(1.0/p, p), fill(0.5, p), 0.5*baseline.tau0) # beta hypers
+                                )
+                        for k in 1:K ]
+    end
+
     cohesion = Cohesion_CRP(1.0, 0)
     similarity = Similarity_NiG_indep(0.0, 0.1, 1.0, 1.0)
 
@@ -90,7 +101,7 @@ function init_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     llik = 0.0
     iter = 0
 
-    return State_PPMx(C, lik_params, baseline, cohesion, similarity, lcohesions, Xstats, lsimilarities, llik, iter)    
+    return State_PPMx(C, lik_params, baseline, cohesion, similarity, lcohesions, Xstats, lsimilarities, llik, iter)
 end
 
 function refresh!(state::State_PPMx, y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}}, obsXIndx::Vector{ObsXIndx}, refresh_llik::Bool=true) where T <: Real
@@ -106,7 +117,7 @@ function refresh!(state::State_PPMx, y::Vector{T}, X::Union{Matrix{T}, Matrix{Un
     state.lcohesions = lcohes_upd # depends on C, cohesion
     state.Xstats = Xstats_upd # depends on C
     state.lsimilarities = lsimil_upd # depends on C, similarity
-    
+
     return nothing
 end
 
@@ -152,7 +163,7 @@ end
 mutable struct Model_PPMx{T <: Real}
     y::Vector{T}
     X::Union{Matrix{T}, Matrix{Union{T, Missing}}}
-    
+
     obsXIndx::Vector{ObsXIndx}
     n::Int
     p::Int
@@ -161,13 +172,15 @@ mutable struct Model_PPMx{T <: Real}
     state::State_PPMx
 end
 
-function Model_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}}, C_init::Union{Int, Vector{Int}}=0) where T <: Real
+function Model_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
+    C_init::Union{Int, Vector{Int}}=0;
+    init_lik_rand::Bool=true) where T <: Real
     n, p = size(X)
     n == length(y) || throw("X, y dimension mismatch.")
     obsXIndx = [ ObsXIndx(X[i,:]) for i in 1:n ]
 
     prior = init_PPMx_prior()
-    state = init_PPMx(y, X, deepcopy(C_init))
+    state = init_PPMx(y, X, deepcopy(C_init), lik_rand=init_lik_rand)
 
     return Model_PPMx(deepcopy(y), deepcopy(X), obsXIndx, n, p, prior, state)
 end

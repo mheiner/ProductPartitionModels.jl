@@ -1,7 +1,7 @@
 # update_config.jl
 
-function update_Ci!(model::Model_PPMx, i::Int, llik_old::Vector{T}) where T <: Real
-    
+function update_Ci!(model::Model_PPMx, i::Int, llik_old::Vector{T}, update_lik_params::Vector{Symbol}=[:mu, :sig, :beta]) where T <: Real
+
     K = maximum(model.state.C)
     S = StatsBase.counts(model.state.C, K)
 
@@ -13,7 +13,7 @@ function update_Ci!(model::Model_PPMx, i::Int, llik_old::Vector{T}) where T <: R
     if S[ci_old] > 1
 
         S[ci_old] -= 1
-            
+
         model.state.lcohesions[ci_old] = log_cohesion(Cohesion_CRP(model.state.cohesion.logα, S[ci_old], true))
 
         for j in 1:model.p
@@ -55,7 +55,7 @@ function update_Ci!(model::Model_PPMx, i::Int, llik_old::Vector{T}) where T <: R
             llik1[k] = deepcopy(llik_old[k])
         else
             indx_k_cand = vcat(indx_k, i)
-            llik1[k] = llik_k(model.y[indx_k_cand], model.X[indx_k_cand,:], model.obsXIndx[indx_k_cand], model.state.lik_params[k], Xstats1[k], model.state.similarity)[1]    
+            llik1[k] = llik_k(model.y[indx_k_cand], model.X[indx_k_cand,:], model.obsXIndx[indx_k_cand], model.state.lik_params[k], Xstats1[k], model.state.similarity)[1]
         end
     end
 
@@ -65,7 +65,7 @@ function update_Ci!(model::Model_PPMx, i::Int, llik_old::Vector{T}) where T <: R
         llik_wgts[k] = sum_llik0 - llik0[k] + llik1[k]
     end
 
-    lik_params_extra = simpri_lik_params(model.state.baseline, model.p)
+    lik_params_extra = simpri_lik_params(model.state.baseline, model.p, model.state.lik_params[1], update_lik_params)
     llik_newclust = llik_k(model.y[[i]], model.X[[i],:], [model.obsXIndx[i]], lik_params_extra, Xstats_newclust, model.state.similarity)[1]
     llik_wgts_newclust = sum_llik0 + llik_newclust
 
@@ -74,7 +74,7 @@ function update_Ci!(model::Model_PPMx, i::Int, llik_old::Vector{T}) where T <: R
     for k in 1:K
         lw[k] = lcohesions1[k] + sum(lsimilar1[k]) - model.state.lcohesions[k] - sum(model.state.lsimilarities[k]) + llik_wgts[k]
     end
-    
+
     ## weight for new singleton cluster
     lw[K + 1] = lcohes_newclust + sum(lsimilar_newclust) + llik_wgts_newclust
 
@@ -104,7 +104,7 @@ function update_Ci!(model::Model_PPMx, i::Int, llik_old::Vector{T}) where T <: R
 end
 
 
-function update_C!(model::Model_PPMx)
+function update_C!(model::Model_PPMx, update_lik_params::Vector{Symbol}=[:mu, :sig, :beta])
 
     K = length(model.state.lik_params)
     llik_now = Vector{Float64}(undef, K)
@@ -115,7 +115,7 @@ function update_C!(model::Model_PPMx)
     end
 
     for i in 1:model.n
-        llik_now = update_Ci!(model, i, llik_now)
+        llik_now = update_Ci!(model, i, llik_now, update_lik_params)
     end
 
     return nothing

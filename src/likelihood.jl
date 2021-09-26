@@ -20,7 +20,7 @@ export llik_k, llik_all;
 #                 sd_out[j] = sqrt(s2_now) # could do something else
 #             else
 #                 sd_out[j] = sqrt(similarity.b0 / (similarity.a0 + 1.0) / similarity.sc_div0) # could do something else
-#             end 
+#             end
 #         else
 #             mean_out[j] = similarity.m0 # could do something else
 #             sd_out[j] = sqrt(similarity.b0 / (similarity.a0 + 1.0) / similarity.sc_div0) # could do something else
@@ -69,7 +69,7 @@ end
 
 #     for j in 1:p
 #         n_now = float(Xstats_k[j].n)
-        
+
 #         npphi = n_now + phi
 #         npn0 = n_now + n0
 #         s0 = similarity.b0 / similarity.a0 # prior harmonic mean
@@ -77,11 +77,11 @@ end
 #         mean_out[j] = (phi * similarity.m0 + Xstats_k[j].sumx) / npphi # could do something else
 
 #         # sd_out[j] = sqrt( (n0 * s0 + ss_now + n_now * phi * (xbar_now - similarity.m0)^2 / npphi ) / npn0 ) # could do something else
-        
+
 #         if n_now > 0.0 # this distinction is for some reason ?? crucial to success; without it, clusters glob together, ESPECIALLY obs with any missing covariates. phi and n0 don't seem to matter much if we have this clause ==> because I was dividing by zero...
 #             xbar_now = Xstats_k[j].sumx / n_now
 #             ss_now = (Xstats_k[j].sumx2 - n_now * xbar_now^2)
-#             sd_out[j] = sqrt( (n0 * s0 + ss_now + n_now * phi * (xbar_now - similarity.m0)^2 / npphi ) / npn0 ) 
+#             sd_out[j] = sqrt( (n0 * s0 + ss_now + n_now * phi * (xbar_now - similarity.m0)^2 / npphi ) / npn0 )
 #             # sd_out[j] = sqrt( (n0 * s0 + ss_now ) / npn0 ) # could do something else
 #         else
 #             sd_out[j] = sqrt(s0)
@@ -97,10 +97,10 @@ function aux_moments_empty(similarity::Similarity_NiG_indep)
 end
 
 
-function llik_k(y_k::Vector{T}, X_k::Union{Matrix{T}, Matrix{Union{T, Missing}}}, 
+function llik_k(y_k::Vector{T}, X_k::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     ObsXIndx_k::Vector{ObsXIndx}, lik_params_k::TT where TT <: LikParams_PPMxReg, Xstats_k::Vector{Similarity_NiG_indep_stats},
     similarity::Similarity_NiG_indep) where T <: Real
-    
+
     aux_mean, aux_sd = aux_moments_k(Xstats_k, similarity) # each length-p vectors
 
     n_k = length(y_k)
@@ -112,16 +112,16 @@ function llik_k(y_k::Vector{T}, X_k::Union{Matrix{T}, Matrix{Union{T, Missing}}}
     vars = Vector{T}(undef, n_k)
 
     for iii in 1:n_k
-        
+
         means[iii] = deepcopy(lik_params_k.mu)
-        
+
         xi = deepcopy(X_k[iii,:])
         if ObsXIndx_k[iii].n_obs > 0
             indx_xiobs = ObsXIndx_k[iii].indx_obs
             ziO = (xi[indx_xiobs] - aux_mean[indx_xiobs]) ./ aux_sd[indx_xiobs]
             means[iii] += ziO'lik_params_k.beta[indx_xiobs]
         end
-        
+
         vars[iii] = lik_params_k.sig^2
 
         if ObsXIndx_k[iii].n_mis > 0
@@ -148,7 +148,7 @@ function llik_k(y_k::Vector{T}, means::Vector{T}, vars::Vector{T}, sig_old::T, s
 end
 
 function llik_all(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
-    C::Vector{Int}, ObsXIndx::Vector{ObsXIndx}, 
+    C::Vector{Int}, ObsXIndx::Vector{ObsXIndx},
     lik_params::Vector{TT} where TT <: LikParams_PPMxReg, Xstats::Vector{Vector{Similarity_NiG_indep_stats}},
     similarity::Similarity_NiG_indep) where T <: Real
 
