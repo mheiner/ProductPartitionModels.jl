@@ -17,7 +17,7 @@ function update_Ci!(model::Model_PPMx, i::Int, llik_old::Vector{T}, update_lik_p
         model.state.lcohesions[ci_old] = log_cohesion(Cohesion_CRP(model.state.cohesion.logα, S[ci_old], true))
 
         for j in 1:model.p
-            model.state.Xstats[ci_old][j] = Similarity_NiG_indep_stats(model.state.Xstats[ci_old][j], model.X[i,j], :subtract)
+            model.state.Xstats[ci_old][j] = Similarity_stats(model.state.Xstats[ci_old][j], model.X[i,j], :subtract)
             model.state.lsimilarities[ci_old][j] = log_similarity(model.state.similarity, model.state.Xstats[ci_old][j], true)
         end
 
@@ -37,12 +37,12 @@ function update_Ci!(model::Model_PPMx, i::Int, llik_old::Vector{T}, update_lik_p
 
     ## get cohesions, Xstats, and similarities each with obs i hypothetically added to each cluster
     lcohesions1 = [ log_cohesion(Cohesion_CRP(model.state.cohesion.logα, S[k] + 1, true)) for k in 1:K ]
-    Xstats1 = [ [ Similarity_NiG_indep_stats(model.state.Xstats[k][j], model.X[i,j], :add) for j in 1:model.p ] for k in 1:K ]
+    Xstats1 = [ [ Similarity_stats(model.state.Xstats[k][j], model.X[i,j], :add) for j in 1:model.p ] for k in 1:K ]
     lsimilar1 = [ [ log_similarity(model.state.similarity, Xstats1[k][j], true) for j in 1:model.p ] for k in 1:K ]
 
     ## get cohesion and similarity for the extra cluster
     lcohes_newclust = log_cohesion(Cohesion_CRP(model.state.cohesion.logα, 1, true))
-    Xstats_newclust = [ Similarity_NiG_indep_stats([model.X[i,j]]) for j = 1:model.p ]
+    Xstats_newclust = [ Similarity_stats(model.state.similarity, [model.X[i,j]]) for j = 1:model.p ]
     lsimilar_newclust = [ log_similarity(model.state.similarity, Xstats_newclust[j], true) for j in 1:model.p ]
 
     ## calculate llik with obs i assigned to each cluster, including the extra

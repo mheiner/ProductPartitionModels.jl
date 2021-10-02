@@ -1,12 +1,12 @@
 # update_lik_params.jl
 
-struct TargetArgs_EsliceBetas{T <: Real, TT <: LikParams_PPMxReg} <: TargetArgs
+struct TargetArgs_EsliceBetas{T <: Real, TT <: LikParams_PPMxReg, TTT <: Similarity_PPMxStats, TTTT <: Similarity_PPMx} <: TargetArgs
     y_k::Vector{T}
     X_k::Union{Matrix{T}, Matrix{Union{T, Missing}}}
     ObsXIndx_k::Vector{ObsXIndx}
     lik_params_k::TT
-    Xstats_k::Vector{Similarity_NiG_indep_stats}
-    similarity::Similarity_NiG_indep
+    Xstats_k::Vector{TTT}
+    similarity::TTTT
 end
 
 struct TargetArgs_sliceSig{T <: Real} <: TargetArgs

@@ -2,7 +2,7 @@
 
 export postPred;
 
-function postPred(Xpred::Union{Matrix{T}, Matrix{Union{T, Missing}}}, 
+function postPred(Xpred::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     model::Model_PPMx,
     sims::Vector{Dict{Symbol, Any}}) where T <: Real
 
@@ -19,6 +19,7 @@ function postPred(Xpred::Union{Matrix{T}, Matrix{Union{T, Missing}}},
 
     Cpred = Matrix{Int}(undef, n_sim, n_pred)
     Ypred = Matrix{typeof(model.y[1])}(undef, n_sim, n_pred)
+    Mean_pred = Matrix{typeof(model.y[1])}(undef, n_sim, n_pred)
 
     lcohes1 = log_cohesion(Cohesion_CRP(model.state.cohesion.logα, 1, true))
     x_mean_empty, x_sd_empty = aux_moments_empty(model.state.similarity)
@@ -44,15 +45,18 @@ function postPred(Xpred::Union{Matrix{T}, Matrix{Union{T, Missing}}},
             lcohes_cand = [ log_cohesion(Cohesion_CRP(model.state.cohesion.logα, S[k] + 1, true)) for k in 1:K ]
 
             # stats for similarity with obs i added (each X[i,:], 1:p); similarity with obs i added
-            stats_cand = [ [ Similarity_NiG_indep_stats(Xstats[k][j], Xpred[i,j], :add) for j in 1:model.p] for k in 1:K ]
+            stats_cand = [ [ Similarity_stats(Xstats[k][j], Xpred[i,j], :add) for j in 1:model.p] for k in 1:K ]
+
             lsimilar_cand = [ [ log_similarity(model.state.similarity, stats_cand[k][j], true) for j in 1:model.p ] for k in 1:K  ]
-            
+
             for k in 1:K
                 lw[k] = lcohes_cand[k] + sum(lsimilar_cand[k]) - lcohesions[k] - sum(lsimilarities[k])
             end
 
             # weight for new singleton cluster
-            stats_newclust = [ Similarity_NiG_indep_stats([Xpred[i,j]]) for j = 1:model.p ]
+
+            stats_newclust = [ Similarity_stats(model.state.similarity, [Xpred[i,j]]) for j = 1:model.p ]
+
             lsimilar_newclust = [ log_similarity(model.state.similarity, stats_newclust[j], true) for j in 1:model.p ]
             lw[K + 1] = lcohes1 + sum(lsimilar_newclust)
 
@@ -77,8 +81,6 @@ function postPred(Xpred::Union{Matrix{T}, Matrix{Union{T, Missing}}},
                     z = (Xpred[i, obsXIndx_pred[i].indx_obs] - Xbars[C_i, obsXIndx_pred[i].indx_obs]) ./ Sds[C_i, obsXIndx_pred[i].indx_obs]
                     mean_now += z' * sims[ii][:lik_params][C_i][:beta][obsXIndx_pred[i].indx_obs]
                 end
-                
-                Ypred[ii, i] = randn() .* sqrt(sig2_now) + mean_now
             else
                 lik_params_new = simpri_lik_params(model.state.baseline, model.p)
 
@@ -93,14 +95,15 @@ function postPred(Xpred::Union{Matrix{T}, Matrix{Union{T, Missing}}},
                     z = (Xpred[i, obsXIndx_pred[i].indx_obs] .- x_mean_empty) ./ x_sd_empty
                     mean_now += z' * lik_params_new.beta[obsXIndx_pred[i].indx_obs]
                 end
-                
-                Ypred[ii, i] = randn() .* sqrt(sig2_now) + mean_now
             end
+
+            Mean_pred[ii, i] = deepcopy(mean_now)
+            Ypred[ii, i] = randn() .* sqrt(sig2_now) + mean_now
 
         end
     end
 
-    return Ypred, Cpred
+    return Ypred, Cpred, Mean_pred
 end
 function postPred(model::Model_PPMx,
     sims::Vector{Dict{Symbol, Any}}) where T <: Real
@@ -112,6 +115,7 @@ function postPred(model::Model_PPMx,
     n_sim = length(sims)
 
     Ypred = Matrix{typeof(model.y[1])}(undef, n_sim, model.n)
+    Mean_pred = Matrix{typeof(model.y[1])}(undef, n_sim, model.n)
 
     for ii in 1:n_sim
 
@@ -140,11 +144,12 @@ function postPred(model::Model_PPMx,
                 z = ( model.X[i, model.obsXIndx[i].indx_obs] - Xbars[C_i, model.obsXIndx[i].indx_obs] ) ./ Sds[C_i, model.obsXIndx[i].indx_obs]
                 mean_now += z' * sims[ii][:lik_params][C_i][:beta][model.obsXIndx[i].indx_obs]
             end
-                
+
+            Mean_pred[ii, i] = deepcopy(mean_now)
             Ypred[ii, i] = randn() .* sqrt(sig2_now) + mean_now
 
         end
     end
 
-    return Ypred
+    return Ypred, Mean_pred
 end

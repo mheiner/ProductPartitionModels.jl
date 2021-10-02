@@ -15,7 +15,7 @@ function sim_partition_PPMx(logα::Real, X::Union{Matrix{T}, Matrix{Union{T, Mis
     lcohes1 = log_cohesion(Cohesion_CRP(logα, 1, true))
 
     lcohesions = [ lcohes1 ] # vector of log cohesions
-    stats = [ [ Similarity_NiG_indep_stats([X[1,j]]) for j = 1:p ] ] # vector (for each clust) of vectors (for each x, 1:p) of sufficient statistics for similarity, obs 1 only so far
+    stats = [ [ Similarity_stats(similarity, [X[1,j]]) for j = 1:p ] ] # vector (for each clust) of vectors (for each x, 1:p) of sufficient statistics for similarity, obs 1 only so far
     lsimilarities = [ [ log_similarity(similarity, stats[1][j], true) for j in 1:p ] ] # vector (for each clust) of vectors (for each x, 1:p) of similarity scores
 
     if n > 1
@@ -34,7 +34,7 @@ function sim_partition_PPMx(logα::Real, X::Union{Matrix{T}, Matrix{Union{T, Mis
 
                 # stats for similarity with obs i added (each X[i,:], 1:p); similarity with obs i added
                 for j in 1:p
-                    stats_cand[k][j] = Similarity_NiG_indep_stats(stats[k][j], X[i,j], :add)
+                    stats_cand[k][j] = Similarity_stats(similarity, stats[k][j], X[i,j], :add)
                     lsimilar_cand[k][j] = log_similarity(similarity, stats_cand[k][j], true)
                 end
 
@@ -43,7 +43,7 @@ function sim_partition_PPMx(logα::Real, X::Union{Matrix{T}, Matrix{Union{T, Mis
             end
 
             # weight for new singleton cluster
-            stats_newclust = [ Similarity_NiG_indep_stats([X[i,j]]) for j = 1:p ]
+            stats_newclust = [ Similarity_stats(similarity, [X[i,j]]) for j = 1:p ]
             lsimilar_newclust = [ log_similarity(similarity, stats_newclust[j], true) for j in 1:p ]
             lw[K_now + 1] = lcohes1 + sum(lsimilar_newclust)
 
@@ -113,7 +113,9 @@ function simpri_lik_params(basemeasure::Baseline_NormDLUnif, p::Int, lik_params_
 end
 
 function sim_lik(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} where T <: Real,
-    similarity::Similarity_NiG_indep, Xstats::Vector{Vector{Similarity_NiG_indep_stats}}, basemeasure::Baseline_measure)
+    similarity::TT where TT <: Similarity_PPMx,
+    Xstats::Vector{Vector{TTT}} where TTT <: Similarity_PPMxStats,
+    basemeasure::Baseline_measure)
 
     n, p = size(X)
     K = maximum(C)

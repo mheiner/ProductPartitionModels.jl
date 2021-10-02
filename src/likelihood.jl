@@ -92,14 +92,49 @@ end
 #     return (mean_out, sd_out)
 # end
 
+function aux_moments_k(Xstats_k::Vector{Similarity_NN_stats}, similarity::Similarity_NN)
+
+    ## Unit-information N-IG priors
+
+    p = length(Xstats_k)
+
+    mean_out = Vector{Float64}(undef, p)
+    sd_out = Vector{Float64}(undef, p)
+
+    for j in 1:p
+        n_now = float(Xstats_k[j].n)
+        np1 = n_now + 1.0
+        mean_out[j] = (similarity.m0 + Xstats_k[j].sumx) / np1 # could do something else
+
+        s0 = similarity.sd^2
+
+        if n_now > 0.0
+            xbar_now = Xstats_k[j].sumx / n_now
+            ss_now = (Xstats_k[j].sumx2 - n_now * xbar_now^2)
+            sd_out[j] = sqrt( ( s0 + ss_now + n_now * (xbar_now - similarity.m0)^2 / np1 ) / np1 ) # could do something else
+        else
+            sd_out[j] = sqrt(s0)
+        end
+    end
+
+    return (mean_out, sd_out)
+end
+
+
+
 function aux_moments_empty(similarity::Similarity_NiG_indep)
     return ( deepcopy(similarity.m0), sqrt(similarity.b0 / similarity.a0) )
+end
+function aux_moments_empty(similarity::Similarity_NN)
+    return ( deepcopy(similarity.m0), deepcopy(similarity.sd) )
 end
 
 
 function llik_k(y_k::Vector{T}, X_k::Union{Matrix{T}, Matrix{Union{T, Missing}}},
-    ObsXIndx_k::Vector{ObsXIndx}, lik_params_k::TT where TT <: LikParams_PPMxReg, Xstats_k::Vector{Similarity_NiG_indep_stats},
-    similarity::Similarity_NiG_indep) where T <: Real
+    ObsXIndx_k::Vector{ObsXIndx},
+    lik_params_k::TT where TT <: LikParams_PPMxReg,
+    Xstats_k::Vector{TTT} where TTT <: Similarity_PPMx_stats,
+    similarity::TTTT where TTTT <: Similarity_PPMx) where T <: Real
 
     aux_mean, aux_sd = aux_moments_k(Xstats_k, similarity) # each length-p vectors
 
@@ -149,8 +184,9 @@ end
 
 function llik_all(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     C::Vector{Int}, ObsXIndx::Vector{ObsXIndx},
-    lik_params::Vector{TT} where TT <: LikParams_PPMxReg, Xstats::Vector{Vector{Similarity_NiG_indep_stats}},
-    similarity::Similarity_NiG_indep) where T <: Real
+    lik_params::Vector{TT} where TT <: LikParams_PPMxReg,
+    Xstats::Vector{Vector{TTT}} where TTT <: Similarity_PPMx_stats,
+    similarity::TTTT where TTTT <: Similarity_PPMx) where T <: Real
 
     # n, p = size(X)
     K = maximum(C)

@@ -51,7 +51,7 @@ function get_lcohlsim(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missin
     S = StatsBase.counts(C, K)
 
     lcohesions = [ log_cohesion(Cohesion_CRP(cohesion.logα, S[k], true)) for k in 1:K ]
-    Xstats = [ [ Similarity_NiG_indep_stats(X[findall(C .== k), j]) for j in 1:p ] for k in 1:K ]
+    Xstats = [ [ Similarity_stats(similarity, X[findall(C .== k), j]) for j in 1:p ] for k in 1:K ]
     lsimilarities = [ [ log_similarity(similarity, Xstats[k][j]) for j in 1:p ] for k in 1:K ]
 
     lcohesions, Xstats, lsimilarities
@@ -59,6 +59,7 @@ end
 
 function init_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     C_init::Union{Int, Vector{Int}}=0;
+    similarity_type::Symbol=:NN;
     lik_rand::Bool=true) where T <: Real
 
     n, p = size(X)
@@ -94,7 +95,12 @@ function init_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     end
 
     cohesion = Cohesion_CRP(1.0, 0)
-    similarity = Similarity_NiG_indep(0.0, 0.1, 1.0, 1.0)
+
+    if similarity_type == :NN
+        similarity = Similarity_NN(1.0, 0.0, 1.0)
+    elseif similarity_type == :NiG_indep
+        similarity = Similarity_NiG_indep(0.0, 0.1, 1.0, 1.0)
+    end
 
     lcohesions, Xstats, lsimilarities = get_lcohlsim(C, X, cohesion, similarity)
 
