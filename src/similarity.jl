@@ -99,7 +99,28 @@ function Similarity_stats(existing::Similarity_NN_stats, x::Missing, action::Sym
     return Similarity_NN_stats(existing.n, existing.sumx, existing.sumx2)
 end
 
+function logdens_nn_marg(sig2::T, m0::T, v0::T, sumx::T, sumx2::T, n::Int) where T <: Real
 
+    ## Calculates the log of the marginal density of x (vector of length n) under model
+    ## x | mu ~iid normal(mu, sig2), mu ~ normal(m0, v0)
+
+    sig2 > 0.0 || DomainError(sig2, "Variance must be positive.")
+    v0 > 0.0 || DomainError(v0, "Variance must be positive.")
+    sumx2 > 0.0 || DomainError(sumx2, "Sum of squares must be positive.")
+    n > 0 || DomainError(n, "Sample size must be positive.")
+
+    n = float(n)
+
+    m1 = sumx2 - 2.0*m0*sumx + n*m0^2
+    m2 = v0 * (sumx - n*m0)^2 / (n*v0 + sig2)
+    m = (m1 - m2) / sig2
+
+    logdet = n*log(sig2) + log(1.0 + n*v0/sig2)
+
+    nl2p = n*log(2π)
+
+    return -0.5 * (nl2p + logdet + m)
+end
 
 function log_similarity(similar::Similarity_NiG_indep, stats::Similarity_NiG_indep_stats, fulldensity::Bool=true)
 
@@ -129,18 +150,7 @@ function log_similarity(similar::Similarity_NN, stats::Similarity_NN_stats, full
 
     if stats.n > 0
 
-        sig2 = similar.sd^2
-        v0 = similar.sd0^2
-
-        m1 = stats.sumx2 - 2.0*similar.m0*stats.sumx + stats.n*similar.m0^2
-        m2 = v0 * (stats.sumx - stats.n*similar.m0)^2 / (stats.n*v0 + sig2)
-        m = (m1 - m2) / sig2
-
-        logdet = stats.n*log(sig2) + log(1.0 + stats.n*v0/sig2)
-
-        nl2p = stats.n*log(2π)
-
-        out = -0.5 * (nl2p + logdet + m)
+        out = logdens_nn_marg(similar.sd^2, similar.m0, similar.sd0^2, stats.sumx, stats.sumx2, stats.n)
 
     else
         out = 0.0

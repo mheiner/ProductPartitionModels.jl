@@ -59,7 +59,7 @@ end
 
 function init_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     C_init::Union{Int, Vector{Int}}=0;
-    similarity_type::Symbol=:NN;
+    similarity_type::Symbol=:NN,
     lik_rand::Bool=true) where T <: Real
 
     n, p = size(X)
@@ -180,13 +180,15 @@ end
 
 function Model_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     C_init::Union{Int, Vector{Int}}=0;
+    similarity_type::Symbol=:NN,
     init_lik_rand::Bool=true) where T <: Real
+
     n, p = size(X)
-    n == length(y) || throw("X, y dimension mismatch.")
+    n == length(y) || error("PPMx model initialization: X, y dimension mismatch.")
     obsXIndx = [ ObsXIndx(X[i,:]) for i in 1:n ]
 
     prior = init_PPMx_prior()
-    state = init_PPMx(y, X, deepcopy(C_init), lik_rand=init_lik_rand)
+    state = init_PPMx(y, X, deepcopy(C_init), similarity_type=similarity_type, lik_rand=init_lik_rand)
 
     return Model_PPMx(deepcopy(y), deepcopy(X), obsXIndx, n, p, prior, state)
 end

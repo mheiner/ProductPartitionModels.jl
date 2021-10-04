@@ -133,7 +133,7 @@ end
 function llik_k(y_k::Vector{T}, X_k::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     ObsXIndx_k::Vector{ObsXIndx},
     lik_params_k::TT where TT <: LikParams_PPMxReg,
-    Xstats_k::Vector{TTT} where TTT <: Similarity_PPMx_stats,
+    Xstats_k::Vector{TTT} where TTT <: Similarity_PPMxStats,
     similarity::TTTT where TTTT <: Similarity_PPMx) where T <: Real
 
     aux_mean, aux_sd = aux_moments_k(Xstats_k, similarity) # each length-p vectors
@@ -185,7 +185,7 @@ end
 function llik_all(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     C::Vector{Int}, ObsXIndx::Vector{ObsXIndx},
     lik_params::Vector{TT} where TT <: LikParams_PPMxReg,
-    Xstats::Vector{Vector{TTT}} where TTT <: Similarity_PPMx_stats,
+    Xstats::Vector{Vector{TTT}} where TTT <: Similarity_PPMxStats,
     similarity::TTTT where TTTT <: Similarity_PPMx) where T <: Real
 
     # n, p = size(X)

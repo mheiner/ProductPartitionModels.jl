@@ -6,9 +6,10 @@ using StatsBase
 using RCall
 R"load('~/Documents/research/PPMx_missing/data/MSPE_ncov_10_missType_MAR_perMiss_0_dataType_1_data_1.RData')"
 R"load('~/Documents/research/PPMx_missing/data/MSPE_ncov_10_missType_MAR_perMiss_0.1_dataType_1_data_1.RData')"
+R"load('~/Documents/research/PPMx_missing/ozone/postsim/ozone_nvar2_rep36.RData'); Xmat=Xcontn; Xpred=Xcontt"
 @rget ytn Xmat Xpred
 y = deepcopy(ytn)
-X = Matrix(deepcopy(Xmat))
+X = Matrix(float(deepcopy(Xmat)))
 
 n = 200
 p = 2
@@ -38,6 +39,9 @@ cohesion = Cohesion_CRP(logα, 0, true)
 similarity = Similarity_NiG_indep(0.0, 0.5, 4.0, 2.0)
 # similarity = Similarity_NiG_indep(0.0, 0.1, 1.0, 1.0)
 # similarity = Similarity_NiG_indep(0.0, 0.1, 4.0, 4.0)
+
+similarity = Similarity_NN(sqrt(0.5), 0.0, 1.0)
+
 C = deepcopy(Ctrue)
 # C, K, S, lcohes, Xstat, lsimilar = sim_partition_PPMx(logα, X, similarity)
 # C
@@ -62,7 +66,7 @@ y, μ, β, σ = sim_lik(C, X, similarity, Xstat, G0)
 σ
 
 # mod = Model_PPMx(y, X, C)
-mod = Model_PPMx(y, X, 0, init_lik_rand=false) # C_init = 0 --> n clusters ; 1 --> 1 cluster
+mod = Model_PPMx(y, X, 0, similarity_type=:NN, init_lik_rand=false) # C_init = 0 --> n clusters ; 1 --> 1 cluster
 fieldnames(typeof(mod))
 fieldnames(typeof(mod.state))
 mod.state.C
@@ -88,8 +92,8 @@ mcmc!(mod, 1000,
     n_procs=1,
     report_filename="",
     report_freq=100,
-    update=[:C, :mu, :sig, :mu0, :sig0]
-    # update=[:C, :mu, :sig, :beta, :mu0, :sig0]
+    # update=[:C, :mu, :sig, :mu0, :sig0]
+    update=[:C, :mu, :sig, :beta, :mu0, :sig0]
 )
 
 etr(timestart; n_iter_timed=1000, n_keep=1000, thin=1, outfilename="")
