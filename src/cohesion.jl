@@ -13,7 +13,7 @@ mutable struct Cohesion_CRP <: Cohesion_PPM
     Cohesion_CRP(α, size, logα) = (α <= 0.0 || size < 0) ? error("Invalid cohesion parameters.") : new(α, size, logα)
 end
 
-function Cohesion_CRP(α::Real, size::Int) 
+function Cohesion_CRP(α::Real, size::Int)
     (α > 0.0 && size >= 0) || throw("Invalid cohesion parameters.")
     Cohesion_CRP(α, size, log(α))
 end
@@ -29,6 +29,3 @@ end
 function log_cohesion(arg::Cohesion_CRP)
     return arg.logα + SpecialFunctions.loggamma(arg.size)
 end
-
-
-

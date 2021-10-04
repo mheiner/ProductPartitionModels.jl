@@ -4,7 +4,8 @@ export postPred;
 
 function postPred(Xpred::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     model::Model_PPMx,
-    sims::Vector{Dict{Symbol, Any}}) where T <: Real
+    sims::Vector{Dict{Symbol, Any}},
+    update_params::Vector{Symbol}=[:mu, :sig, :beta, :mu0, :sig0]) where T <: Real
 
     ## currently assumes cohesion and similarity parameters are fixed
     ## treats each input as the n+1th observation with no consideration of them clustering together
@@ -70,7 +71,7 @@ function postPred(Xpred::Union{Matrix{T}, Matrix{Union{T, Missing}}},
 
             # draw y value
             if C_i > 0
-                mean_now = sims[ii][:lik_params][C_i][:mu]
+                mean_now = deepcopy(sims[ii][:lik_params][C_i][:mu])
                 sig2_now = sims[ii][:lik_params][C_i][:sig]^2
 
                 if obsXIndx_pred[i].n_mis > 0
@@ -82,9 +83,19 @@ function postPred(Xpred::Union{Matrix{T}, Matrix{Union{T, Missing}}},
                     mean_now += z' * sims[ii][:lik_params][C_i][:beta][obsXIndx_pred[i].indx_obs]
                 end
             else
-                lik_params_new = simpri_lik_params(model.state.baseline, model.p)
+                if (:mu0 in update_params) && (:sig0 in update_params)
+                    lik_params_new = simpri_lik_params(
+                        Baseline_NormDLUnif(sims[ii][:baseline][:mu0], sims[ii][:baseline][:sig0],
+                                            model.state.baseline.tau0, model.state.baseline.upper_sig),
+                        model.p, model.state.lik_params[1], update_lik_params
+                        ) # this is a messy patch, needs attention
+                else
+                    lik_params_new = simpri_lik_params(model.state.baseline,
+                        model.p, model.state.lik_params[1], update_lik_params
+                        )
+                end
 
-                mean_now = lik_params_new.mu
+                mean_now = deepcopy(lik_params_new.mu)
                 sig2_now = lik_params_new.sig^2
 
                 if obsXIndx_pred[i].n_mis > 0
@@ -133,7 +144,7 @@ function postPred(model::Model_PPMx,
         for i in 1:model.n
         # draw y value
             C_i = sims[ii][:C][i]
-            mean_now = sims[ii][:lik_params][C_i][:mu]
+            mean_now = deepcopy(sims[ii][:lik_params][C_i][:mu])
             sig2_now = sims[ii][:lik_params][C_i][:sig]^2
 
             if model.obsXIndx[i].n_mis > 0
