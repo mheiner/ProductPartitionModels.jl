@@ -87,7 +87,7 @@ function init_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
                         for k in 1:K ]
     else
         lik_params = [ LikParams_PPMxReg(0.0, # mu
-                                1.0, # sig
+                                0.1, # sig
                                 zeros(p), # beta
                                 Hypers_DirLap(fill(1.0/p, p), fill(0.5, p), 0.5*baseline.tau0) # beta hypers
                                 )

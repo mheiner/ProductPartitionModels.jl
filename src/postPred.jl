@@ -87,11 +87,11 @@ function postPred(Xpred::Union{Matrix{T}, Matrix{Union{T, Missing}}},
                     lik_params_new = simpri_lik_params(
                         Baseline_NormDLUnif(sims[ii][:baseline][:mu0], sims[ii][:baseline][:sig0],
                                             model.state.baseline.tau0, model.state.baseline.upper_sig),
-                        model.p, model.state.lik_params[1], update_lik_params
+                        model.p, model.state.lik_params[1], update_params
                         ) # this is a messy patch, needs attention
                 else
                     lik_params_new = simpri_lik_params(model.state.baseline,
-                        model.p, model.state.lik_params[1], update_lik_params
+                        model.p, model.state.lik_params[1], update_params
                         )
                 end
 
