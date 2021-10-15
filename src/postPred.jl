@@ -143,7 +143,7 @@ function postPred(model::Model_PPMx,
 
         for i in 1:model.n
         # draw y value
-            C_i = sims[ii][:C][i]
+            C_i = deepcopy(sims[ii][:C][i])
             mean_now = deepcopy(sims[ii][:lik_params][C_i][:mu])
             sig2_now = sims[ii][:lik_params][C_i][:sig]^2
 

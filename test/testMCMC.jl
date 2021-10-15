@@ -8,8 +8,28 @@ R"load('~/Documents/research/PPMx_missing/data/MSPE_ncov_10_missType_MAR_perMiss
 R"load('~/Documents/research/PPMx_missing/data/MSPE_ncov_10_missType_MAR_perMiss_0.1_dataType_1_data_1.RData')"
 R"load('~/Documents/research/PPMx_missing/ozone/postsim/ozone_nvar2_rep36.RData'); Xmat=Xcontn; Xpred=Xcontt"
 @rget ytn Xmat Xpred
-y = deepcopy(ytn)
+y = float(deepcopy(ytn))
 X = Matrix(float(deepcopy(Xmat)))
+Xpred = Matrix(float(deepcopy(Xpred)))
+n, p = size(X)
+
+@rget y_mean y_sd
+
+@rget ytt
+y_mean = mean(vcat(ytt, ytn))
+y_sd = StatsBase.std(vcat(ytt, ytn))
+
+y_use = (y .- y_mean) ./ y_sd
+
+# X = Matrix{Union{Missing, Float64}}(missing, n, p)
+# for i in 1:n
+#     for p in 1:p
+#         if !ismissing(Xmat[i,p])
+#             X[i,p] = 0.0
+#             X[i,p] += float(Xmat[i,p])
+#         end
+#     end
+# end
 
 n = 200
 p = 2
@@ -66,7 +86,7 @@ y, μ, β, σ = sim_lik(C, X, similarity, Xstat, G0)
 σ
 
 # mod = Model_PPMx(y, X, C)
-mod = Model_PPMx(y, X, 0, similarity_type=:NN, init_lik_rand=false) # C_init = 0 --> n clusters ; 1 --> 1 cluster
+mod = Model_PPMx(y_use, X, 0, similarity_type=:NN, init_lik_rand=false) # C_init = 0 --> n clusters ; 1 --> 1 cluster
 fieldnames(typeof(mod))
 fieldnames(typeof(mod.state))
 mod.state.C
@@ -74,6 +94,10 @@ mod.state.C
 mod.state.baseline = deepcopy(G0)
 mod.state.cohesion = deepcopy(cohesion)
 mod.state.similarity = deepcopy(similarity)
+
+mod.state.similarity = Similarity_NN(sqrt(0.5), 0.0, 1.0)
+mod.state.baseline = Baseline_NormDLUnif(0.0, 0.1, 0.1, 10.0/y_sd)
+mod.prior.baseline = Prior_baseline_NormDLUnif(0.0, 10.0/y_sd, 10.0/y_sd)
 
 mod.prior
 # mod.prior.baseline.tau02_sh = 49.0 # got rid of this
@@ -92,13 +116,13 @@ mcmc!(mod, 1000,
     n_procs=1,
     report_filename="",
     report_freq=100,
-    # update=[:C, :mu, :sig, :mu0, :sig0]
-    update=[:C, :mu, :sig, :beta, :mu0, :sig0]
+    update=[:C, :mu, :sig, :mu0, :sig0]
+    # update=[:C, :mu, :sig, :beta, :mu0, :sig0]
 )
 
 etr(timestart; n_iter_timed=1000, n_keep=1000, thin=1, outfilename="")
 
-sims = mcmc!(mod, 1000,
+sims = mcmc!(mod, 2000,
     save=true,
     thin=1,
     n_procs=1,
@@ -108,6 +132,9 @@ sims = mcmc!(mod, 1000,
     # update=[:C, :mu, :sig, :beta, :mu0, :sig0],
     monitor=[:C, :mu, :sig, :beta, :mu0, :sig0]
 )
+
+sims0 = deepcopy(sims)
+sims == sims0
 
 sims[1]
 sims[1000]
@@ -261,10 +288,51 @@ typeof(Xrr) <: Union{Matrix{T}, Matrix{Union{T, Missing}}} where T <: Real
 
 Xrr[1,:] = [-5.0, missing]
 
-Ypred, Cpred = postPred(Xrr, mod, sims)
+# Ypred, Cpred, Mpred = postPred(Xrr, mod, sims)
+Ypred, Cpred, Mpred = postPred(Xpred, mod, sims)
+sims == sims0
+
 
 Xrr
 using RCall
 @rput Ypred
 StatsBase.counts(Cpred[:,1], 0:10)
 R"hist(Ypred[,1], breaks=20)"
+
+R"  xseq = seq(from=-3.0, to=3.0, length=50)
+    Xsurf = as.matrix(expand.grid(xseq, xseq)) # fit a surface
+"
+@rget xseq Xsurf
+
+Ysurf, Csurf, Msurf = postPred(Xsurf, mod, sims)
+Ysurf_mean = mean(Ysurf, dims=1)[1,:]
+Ysurf_mean = mean(Ysurf, dims=1)[1,:] * y_sd .+ y_mean
+
+using Plotly
+
+Ysurf_mean_mat = Matrix(reshape(Ysurf_mean, fill(length(xseq),2)...))
+trace1 = surface(Dict(
+  :x => xseq,
+  :y => xseq,
+  :z => Ysurf_mean_mat,
+  :colorscale => "Viridis",
+  :opacity => 0.4,
+  :showscale => false,
+  :type => "surface"
+))
+# data = [trace1]
+# Plotly.plot(data)
+
+indx_cc = findall( [ all(.!ismissing.(X[i,1:2])) for i in 1:n ] )
+trace2 = Plotly.scatter3d(Dict(
+  :x => convert(Vector{Float64}, X[indx_cc,1]),
+  :y => convert(Vector{Float64}, X[indx_cc,2]),
+  :z => y[indx_cc],
+  :opacity => 0.7,
+  :showscale => false,
+  :mode => "markers"
+  # :marker => Dict(:color => colors[1], :size => 5.0)
+))
+
+data = [trace1, trace2]
+Plotly.plot(data)
