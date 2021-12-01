@@ -75,7 +75,7 @@ function ellipSlice(x::Vector{T}, mu::Vector{T}, sig2::Vector{T},
 
     iter <= maxiter || throw("Elliptical slice sampler exceeded max iterations.")
 
-    return x_cand, lt_cand
+    return x_cand, lt_cand, iter
 end
 
 # Figure 5 from Neal (2003)
@@ -108,5 +108,5 @@ function shrinkSlice(x::Real, L::Real, R::Real,
 
     iter <= maxiter || throw("Slice sampler exceeded max iterations.")
 
-    return x_cand, lt_cand
+    return x_cand, lt_cand, iter
 end

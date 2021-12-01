@@ -80,6 +80,7 @@ G0 = Baseline_NormDLUnif(μ0, σ0, τ0, upper_σ)
 
 y, μ, β, σ = sim_lik(C, X, similarity, Xstat, G0)
 
+y_use = deepcopy(y)
 # y
 μ
 β
@@ -98,6 +99,7 @@ mod.state.similarity = deepcopy(similarity)
 mod.state.similarity = Similarity_NN(sqrt(0.5), 0.0, 1.0)
 mod.state.baseline = Baseline_NormDLUnif(0.0, 0.1, 0.1, 10.0/y_sd)
 mod.prior.baseline = Prior_baseline_NormDLUnif(0.0, 10.0/y_sd, 10.0/y_sd)
+mod.prior.baseline = Prior_baseline_NormDLUnif(0.0, 10.0/y_sd, 30.0/y_sd)
 
 mod.prior
 # mod.prior.baseline.tau02_sh = 49.0 # got rid of this
@@ -116,20 +118,20 @@ mcmc!(mod, 1000,
     n_procs=1,
     report_filename="",
     report_freq=100,
-    update=[:C, :mu, :sig, :mu0, :sig0]
-    # update=[:C, :mu, :sig, :beta, :mu0, :sig0]
+    # update=[:C, :mu, :sig, :mu0, :sig0]
+    update=[:C, :mu, :sig, :beta, :mu0, :sig0]
 )
 
 etr(timestart; n_iter_timed=1000, n_keep=1000, thin=1, outfilename="")
 
-sims = mcmc!(mod, 2000,
+sims = mcmc!(mod, 1000,
     save=true,
-    thin=1,
+    thin=5,
     n_procs=1,
     report_filename="",
     report_freq=100,
-    update=[:C, :mu, :sig, :mu0, :sig0],
-    # update=[:C, :mu, :sig, :beta, :mu0, :sig0],
+    # update=[:C, :mu, :sig, :mu0, :sig0],
+    update=[:C, :mu, :sig, :beta, :mu0, :sig0],
     monitor=[:C, :mu, :sig, :beta, :mu0, :sig0]
 )
 
@@ -160,7 +162,7 @@ plot(sims_S)
 counts([ sims[ii][:C][57] for ii in 1:length(sims) ])
 
 ## monitoring lik_params is only useful if C is not changing
-Kuse = 1
+Kuse = 3
 
 sims_mu_mat = [ sims[ii][:lik_params][sims[ii][:C][i]][:mu] for ii in 1:length(sims), i in 1:mod.n ]
 sims_mu = [ sims[ii][:lik_params][kk][:mu] for ii in 1:length(sims), kk in 1:Kuse ]
