@@ -1,7 +1,7 @@
 name = "ProductPartitionModels"
 uuid = "dc94b787-0653-43d5-ba3f-631bd51a31aa"
 authors = ["Matt Heiner <heiner@stat.byu.edu>"]
-version = "0.6.0"
+version = "0.7.0"
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"

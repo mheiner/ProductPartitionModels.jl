@@ -31,9 +31,9 @@ y_use = (y .- y_mean) ./ y_sd
 #     end
 # end
 
-n = 200
+n = 100
 p = 2
-prop_mis = 0.5
+prop_mis = 0.3
 nmis = Int(floor(prop_mis*n*p))
 nobs = n*p - nmis
 X = Matrix{Union{Missing, Float64}}(missing, n, p)
@@ -60,7 +60,7 @@ similarity = Similarity_NiG_indep(0.0, 0.5, 4.0, 2.0)
 # similarity = Similarity_NiG_indep(0.0, 0.1, 1.0, 1.0)
 # similarity = Similarity_NiG_indep(0.0, 0.1, 4.0, 4.0)
 
-similarity = Similarity_NN(sqrt(0.5), 0.0, 1.0)
+# similarity = Similarity_NN(sqrt(0.5), 0.0, 1.0)
 
 C = deepcopy(Ctrue)
 # C, K, S, lcohes, Xstat, lsimilar = sim_partition_PPMx(logα, X, similarity)
@@ -87,7 +87,8 @@ y_use = deepcopy(y)
 σ
 
 # mod = Model_PPMx(y, X, C)
-mod = Model_PPMx(y_use, X, 0, similarity_type=:NN, init_lik_rand=false) # C_init = 0 --> n clusters ; 1 --> 1 cluster
+# mod = Model_PPMx(y_use, X, 0, similarity_type=:NN, init_lik_rand=false) # C_init = 0 --> n clusters ; 1 --> 1 cluster
+mod = Model_PPMx(y_use, X, 0, similarity_type=:NiG_indep, init_lik_rand=false) # C_init = 0 --> n clusters ; 1 --> 1 cluster
 fieldnames(typeof(mod))
 fieldnames(typeof(mod.state))
 mod.state.C
@@ -107,7 +108,7 @@ mod.prior
 
 refresh!(mod.state, mod.y, mod.X, mod.obsXIndx, true)
 mod.state.llik
-mod.state.baseline.tau0 = 1.0
+mod.state.baseline.tau0 = 0.05
 
 using Dates
 timestart = Dates.now()
@@ -126,7 +127,7 @@ etr(timestart; n_iter_timed=1000, n_keep=1000, thin=1, outfilename="")
 
 sims = mcmc!(mod, 1000,
     save=true,
-    thin=5,
+    thin=3,
     n_procs=1,
     report_filename="",
     report_freq=100,
