@@ -186,6 +186,10 @@ function _gigqdf(x::Real, λ::Real, β::Real)
     (x^(λ - 1)) * exp(-β * (x + 1 / x) / 2)
 end
 
+function _lgigqdf(x::Real, λ::Real, β::Real)
+    (λ - 1.0) * log(x) - β * (x + 1.0 / x) / 2.0
+end
+
 function _hormann(λ::Real, β::Real, maxiter=2000)
     # compute bounding rectangles
     m = β / (1 - λ + sqrt((1 - λ)^2 + β^2))  # mode
@@ -258,20 +262,62 @@ function _rou(λ::Real, β::Real, maxiter=2000)
     error("Reached maxiter of ratio of uniforms method with λ=$(λ) and β=$(β)")
 end
 
-function _rou_shift(λ::Real, β::Real, maxiter=2000)
+# function _rou_shift(λ::Real, β::Real, maxiter=5000)
+#     # compute bounding rectangle
+#     m = (λ - 1.0 + sqrt((λ - 1.0)^2 + β^2)) / β  # mode
+#     a = -2.0(λ + 1.0) / β - m
+#     b = 2.0*(λ - 1.0) * m / β - 1.0
+#     p = b - (a^2) / 3.0
+#     q = 2.0*(a^3) / 27.0 - (a * b) / 3.0 + m
+#     ϕ = acos(-(q / 2.0) * sqrt(-27.0 / (p^3)))  # Cardano's formula
+#     r = sqrt(-4.0*p / 3.0)
+#     xneg = r * cos(ϕ / 3.0 + 4π / 3.0) - a / 3.0
+#     xpos = r * cos(ϕ / 3.0) - a / 3.0
+#
+#     vpos = sqrt(_gigqdf(m, λ, β))
+#     lvpos = 0.5 * _lgigqdf(m, λ, β)
+#
+#     uneg = (xneg - m) * sqrt(_gigqdf(xneg, λ, β))
+#
+#     upos = (xpos - m) * sqrt(_gigqdf(xpos, λ, β))
+#     lupos = log(xpos - m) + 0.5 * _lgigqdf(xpos, λ, β)
+#
+#     # perform rejection sampling
+#     iter = 1
+#     # while true
+#     while iter < maxiter
+#         u = (upos - uneg) * rand() + uneg
+#         v = vpos * rand()
+#         x = max(u / v + m, 0)
+#         if v^2 <= _gigqdf(x, λ, β)
+#             return x
+#         end
+#         iter += 1
+#     end
+#     error("Reached maxiter of shifted ratio of uniforms method with λ=$(λ) and β=$(β)")
+# end
+
+function _rou_shift(λ::Real, β::Real, maxiter=5000)
     # compute bounding rectangle
-    m = (λ - 1 + sqrt((λ - 1)^2 + β^2)) / β  # mode
-    a = -2(λ + 1) / β - m
-    b = 2(λ - 1) * m / β - 1
-    p = b - (a^2) / 3
-    q = 2(a^3) / 27 - (a * b) / 3 + m
-    ϕ = acos(-(q / 2) * sqrt(-27 / (p^3)))  # Cardano's formula
-    r = sqrt(-4p / 3)
-    xneg = r * cos(ϕ / 3 + 4π / 3) - a / 3
-    xpos = r * cos(ϕ / 3) - a / 3
-    vpos = sqrt(_gigqdf(m, λ, β))
-    uneg = (xneg - m) * sqrt(_gigqdf(xneg, λ, β))
-    upos = (xpos - m) * sqrt(_gigqdf(xpos, λ, β))
+    m = (λ - 1.0 + sqrt((λ - 1.0)^2 + β^2)) / β  # mode
+    a = -2.0(λ + 1.0) / β - m
+    b = 2.0*(λ - 1.0) * m / β - 1.0
+    p = b - (a^2) / 3.0
+    q = 2.0*(a^3) / 27.0 - (a * b) / 3.0 + m
+    ϕ = acos(-(q / 2.0) * sqrt(-27.0 / (p^3)))  # Cardano's formula
+    r = sqrt(-4.0*p / 3.0)
+    xneg = r * cos(ϕ / 3.0 + 4π / 3.0) - a / 3.0
+    xpos = r * cos(ϕ / 3.0) - a / 3.0
+
+    lg_at_mode = _lgigqdf(m, λ, β)
+    lg_at_xneg = _lgigqdf(xneg, λ, β)
+    lg_at_xpos = _lgigqdf(xneg, λ, β)
+
+    lg_ref = max(lg_at_mode, lg_at_xneg, lg_at_xpos) # to prevent underflow
+
+    vpos = exp( 0.5 * (lg_at_mode - lg_ref) )
+    uneg = (xneg - m) * exp( 0.5 * (lg_at_xneg - lg_ref) )
+    upos = (xpos - m) * exp( 0.5 * (lg_at_xpos - lg_ref) )
 
     # perform rejection sampling
     iter = 1
@@ -279,8 +325,8 @@ function _rou_shift(λ::Real, β::Real, maxiter=2000)
     while iter < maxiter
         u = (upos - uneg) * rand() + uneg
         v = vpos * rand()
-        x = max(u / v + m, 0)
-        if v^2 <= _gigqdf(x, λ, β)
+        x = max(u / v + m, 0.0)
+        if 2.0*log(v) <= ( _lgigqdf(x, λ, β) - lg_ref )
             return x
         end
         iter += 1

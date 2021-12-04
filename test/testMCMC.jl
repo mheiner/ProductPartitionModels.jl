@@ -109,6 +109,7 @@ mod.prior
 
 refresh!(mod.state, mod.y, mod.X, mod.obsXIndx, true)
 mod.state.llik
+mod.state.baseline.tau0 = 10000.0
 mod.state.baseline.tau0 = 0.1
 
 using Dates
