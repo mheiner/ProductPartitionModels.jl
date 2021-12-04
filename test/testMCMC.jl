@@ -60,7 +60,7 @@ cohesion = Cohesion_CRP(logα, 0, true)
 # similarity = Similarity_NiG_indep(0.0, 0.1, 1.0, 1.0)
 # similarity = Similarity_NiG_indep(0.0, 0.1, 4.0, 4.0)
 
-similarity = Similarity_NN(sqrt(0.5), 0.0, 1.0)
+# similarity = Similarity_NN(sqrt(0.5), 0.0, 1.0)
 similarity = Similarity_NN(1.0, 0.0, 1.0)
 
 C = deepcopy(Ctrue)
@@ -98,9 +98,9 @@ mod.state.baseline = deepcopy(G0)
 mod.state.cohesion = deepcopy(cohesion)
 mod.state.similarity = deepcopy(similarity)
 
-mod.state.similarity = Similarity_NN(sqrt(0.5), 0.0, 1.0)
-mod.state.baseline = Baseline_NormDLUnif(0.0, 0.1, 0.1, 10.0/y_sd)
-mod.prior.baseline = Prior_baseline_NormDLUnif(0.0, 10.0/y_sd, 10.0/y_sd)
+# mod.state.similarity = Similarity_NN(sqrt(0.5), 0.0, 1.0)
+# mod.state.baseline = Baseline_NormDLUnif(0.0, 0.1, 0.1, 10.0/y_sd)
+# mod.prior.baseline = Prior_baseline_NormDLUnif(0.0, 10.0/y_sd, 10.0/y_sd)
 # mod.prior.baseline = Prior_baseline_NormDLUnif(0.0, 10.0/y_sd, 30.0/y_sd)
 
 mod.prior
@@ -109,12 +109,12 @@ mod.prior
 
 refresh!(mod.state, mod.y, mod.X, mod.obsXIndx, true)
 mod.state.llik
-mod.state.baseline.tau0 = 1.0
+mod.state.baseline.tau0 = 0.1
 
 using Dates
 timestart = Dates.now()
 
-mcmc!(mod, 500,
+mcmc!(mod, 1000,
     save=false,
     thin=1,
     n_procs=1,
