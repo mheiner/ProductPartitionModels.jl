@@ -10,6 +10,8 @@ using Random, Random123
 using Distributed
 using Dates
 
+using StatsFuns: logsumexp
+
 include("types.jl")
 include("general.jl")
 

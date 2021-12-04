@@ -1,9 +1,6 @@
 # update_config.jl
 
-function update_Ci!(model::Model_PPMx, i::Int, llik_old::Vector{T}, update_lik_params::Vector{Symbol}=[:mu, :sig, :beta]) where T <: Real
-
-    K = maximum(model.state.C)
-    S = StatsBase.counts(model.state.C, K)
+function update_Ci!(model::Model_PPMx, i::Int, K::Int, S::Vector{Int}, llik_old::Vector{T}, update_lik_params::Vector{Symbol}=[:mu, :sig, :beta]) where T <: Real
 
     ## remove obs i from current C and modify current cohesions, Xstats, and similarities without obs i
     Ci_old = model.state.C[i]
@@ -93,50 +90,28 @@ function update_Ci!(model::Model_PPMx, i::Int, llik_old::Vector{T}, update_lik_p
         push!(model.state.Xstats, Xstats_newclust)
         push!(model.state.lsimilarities, lsimilar_newclust)
         push!(llik_out, llik_newclust)
+        K += 1
+        push!(S, 1)
     else
         model.state.lcohesions[Ci_out] = deepcopy(lcohesions1[Ci_out])
         model.state.Xstats[Ci_out] = deepcopy(Xstats1[Ci_out])
         model.state.lsimilarities[Ci_out] = deepcopy(lsimilar1[Ci_out])
         llik_out[Ci_out] = deepcopy(llik1[Ci_out])
+        S[Ci_out] += 1
     end
 
-    return llik_out
+    return llik_out, K, S
 end
 
 
-function update_C!(model::Model_PPMx, update_lik_params::Vector{Symbol}=[:mu, :sig, :beta])
-
-    K = length(model.state.lik_params)
-    llik_now = Vector{Float64}(undef, K)
-
-    for k in 1:K
-        indx_k = findall(model.state.C.==k)
-        llik_now[k] = llik_k(model.y[indx_k], model.X[indx_k,:], model.obsXIndx[indx_k], model.state.lik_params[k], model.state.Xstats[k], model.state.similarity)[1]
-    end
-
-    for i in 1:model.n
-        llik_now = update_Ci!(model, i, llik_now, update_lik_params)
-    end
-
-    return nothing
-end
-
-
-
-
-
-
-
-function update_Ci_MH!(model::Model_PPMx, i::Int, llik_vec::Vector{T},
+function update_Ci_MH!(model::Model_PPMx, i::Int, K::Int, S::Vector{Int}, llik_vec::Vector{T},
     update_lik_params::Vector{Symbol}=[:mu, :sig, :beta], pswap = 0.5) where T <: Real
 
     ### Adaptation of Neal's (2000) Algorithm 7
 
-    K = maximum(model.state.C)
-    S = StatsBase.counts(model.state.C, K)
-    Ci_old = model.state.C[i]
+    Ci_old = deepcopy(model.state.C[i])
 
-    if rand() < pswap # swap group -> single or single -> group
+    if rand() < pswap # single -> group or swap group -> single
 
         if S[Ci_old] == 1 # if i is a singleton, propose to move to one of the occupied groups
 
@@ -145,7 +120,7 @@ function update_Ci_MH!(model::Model_PPMx, i::Int, llik_vec::Vector{T},
             ## get cohesions, Xstats, and similarities each with obs i hypothetically added to each cluster
             lcohesions1 = deepcopy(model.state.lcohesions)
             Xstats1 = deepcopy(model.state.Xstats)
-            lsimilar1 = deepcopy(model.state.lsimilar1)
+            lsimilar1 = deepcopy(model.state.lsimilarities)
 
             lcg_ratios = Vector{Float64}(undef, K)
             for k in ks_use
@@ -174,9 +149,9 @@ function update_Ci_MH!(model::Model_PPMx, i::Int, llik_vec::Vector{T},
             ## determine whether to accept candidate and update
             accpt = log(rand()) < lp_accpt
             if accpt
-                model.state.C[i] = Ci_cand
+                model.state.C[i] = deepcopy(Ci_cand)
                 model.state.C[findall(model.state.C .> Ci_old)] .-= 1 # relabel all obs with label higher than the deleted one
-                Ci_out = model.state.C[i]
+                Ci_out = deepcopy(model.state.C[i])
 
                 deleteat!(model.state.lcohesions, Ci_old)
                 deleteat!(model.state.Xstats, Ci_old)
@@ -188,6 +163,10 @@ function update_Ci_MH!(model::Model_PPMx, i::Int, llik_vec::Vector{T},
                 model.state.Xstats[Ci_out] = deepcopy(Xstats1[Ci_cand])
                 model.state.lsimilarities[Ci_out] = deepcopy(lsimilar1[Ci_cand])
                 llik_vec[Ci_out] = llik_Ci_cand
+                K -= 1
+                S[Ci_cand] += 1
+                deleteat!(S, Ci_old)
+                # length(S) == K || throw("Error in swap single to group, K=$(K) and S=$(S)")
             end
 
         else # if i has company in its cluster, propose a singleton
@@ -217,7 +196,7 @@ function update_Ci_MH!(model::Model_PPMx, i::Int, llik_vec::Vector{T},
 
             lcohesions1 = deepcopy(model.state.lcohesions)
             Xstats1 = deepcopy(model.state.Xstats)
-            lsimilar1 = deepcopy(model.state.lsimilar1)
+            lsimilar1 = deepcopy(model.state.lsimilarities)
 
             lcg_ratios = Vector{Float64}(undef, K)
             for k in ks_other
@@ -233,6 +212,13 @@ function update_Ci_MH!(model::Model_PPMx, i::Int, llik_vec::Vector{T},
             ## compute acceptance probability
             indx_Ci_wo_i = findall(model.state.C .== Ci_old)
             indx_Ci_wo_i = setdiff(indx_Ci_wo_i, i)
+            # if length(indx_Ci_wo_i) == 0
+            #     println("K=$(K), S=$(S), Ci_cand=new, Ci_old=$(Ci_old), length(S)=$(length(S)), sum(S)=$(sum(S))")
+            #     S_now = StatsBase.counts(model.state.C, 1:maximum(model.state.C))
+            #     println("Scounts_now=$(S_now) with length $(length(S_now)) and sum $(sum(S_now))")
+            #     println("S and Scounts_now equal? $(all(S .== S_now))")
+            #     println("S minus Scounts_now=$(S-S_now)")
+            # end
             llik_Ci_wo_i = llik_k(model.y[indx_Ci_wo_i], model.X[indx_Ci_wo_i,:], model.obsXIndx[indx_Ci_wo_i],
                                   model.state.lik_params[Ci_old], Xstats0[Ci_old], model.state.similarity)[1]
             llik_as_single = llik_Ci_wo_i + llik_newclust
@@ -254,13 +240,18 @@ function update_Ci_MH!(model::Model_PPMx, i::Int, llik_vec::Vector{T},
                 model.state.Xstats[Ci_old] = deepcopy(Xstats0[Ci_old])
                 model.state.lsimilarities[Ci_old] = deepcopy(lsimilar0[Ci_old])
                 llik_vec[Ci_old] = llik_Ci_wo_i
+
+                K += 1
+                S[Ci_old] -= 1
+                push!(S, 1)
+                # length(S) == K || throw("Error in swap group to single, K=$(K) and S=$(S)")
             end
 
         end
 
     else # move between occupied clusters
 
-        if S[Ci_old] > 1 # only propose a move if not a singleton
+        if S[Ci_old] > 1 && K > 1 # only propose a move if not a singleton
 
             ## get cohesions, Xstats, and similarities each with obs i hypothetically in or out of each cluster
             lcohesions0 = deepcopy(model.state.lcohesions)
@@ -277,7 +268,7 @@ function update_Ci_MH!(model::Model_PPMx, i::Int, llik_vec::Vector{T},
 
             lcohesions1 = deepcopy(model.state.lcohesions)
             Xstats1 = deepcopy(model.state.Xstats)
-            lsimilar1 = deepcopy(model.state.lsimilar1)
+            lsimilar1 = deepcopy(model.state.lsimilarities)
 
             lcg_ratios = Vector{Float64}(undef, K)
             for k in ks_notCi_old
@@ -299,13 +290,20 @@ function update_Ci_MH!(model::Model_PPMx, i::Int, llik_vec::Vector{T},
             ks_not_Ci_cand = setdiff(1:K, Ci_cand)
 
             lsum_cgratios_num = logsumexp(lcg_ratios[ks_notCi_old])
-            lsum_cgratios_denom = logsumexp(lcg_ratios[ks_notCi_cand])
+            lsum_cgratios_denom = logsumexp(lcg_ratios[ks_not_Ci_cand])
 
 
             llik_Ci_old_w = llik_vec[Ci_old]
 
             indx_Ci_old_wo = findall(model.state.C .== Ci_old)
             indx_Ci_old_wo = setdiff(indx_Ci_old_wo, i)
+            # if length(indx_Ci_old_wo) == 0
+            #     println("K=$(K), S=$(S), Ci_cand=$(Ci_cand), Ci_old=$(Ci_old), length(S)=$(length(S)), sum(S)=$(sum(S))")
+            #     S_now = StatsBase.counts(model.state.C, 1:maximum(model.state.C))
+            #     println("Scounts_now=$(S_now) with length $(length(S_now)) and sum $(sum(S_now))")
+            #     println("S and Scounts_now equal? $(all(S .== S_now))")
+            #     println("S minus Scounts_now=$(S - S_now)")
+            # end
             llik_Ci_old_wo = llik_k(model.y[indx_Ci_old_wo], model.X[indx_Ci_old_wo,:], model.obsXIndx[indx_Ci_old_wo],
                                   model.state.lik_params[Ci_old], Xstats0[Ci_old], model.state.similarity)[1]
 
@@ -321,7 +319,7 @@ function update_Ci_MH!(model::Model_PPMx, i::Int, llik_vec::Vector{T},
             ## determine whether to accept candidate and update
             accpt = log(rand()) < lp_accpt
             if accpt
-                model.state.C[i] = Ci_cand
+                model.state.C[i] = deepcopy(Ci_cand)
 
                 model.state.lcohesions[Ci_cand] = deepcopy(lcohesions1[Ci_cand])
                 model.state.Xstats[Ci_cand] = deepcopy(Xstats1[Ci_cand])
@@ -332,11 +330,38 @@ function update_Ci_MH!(model::Model_PPMx, i::Int, llik_vec::Vector{T},
                 model.state.Xstats[Ci_old] = deepcopy(Xstats0[Ci_old])
                 model.state.lsimilarities[Ci_old] = deepcopy(lsimilar0[Ci_old])
                 llik_vec[Ci_old] = llik_Ci_old_wo
+
+                S[Ci_cand] += 1
+                S[Ci_old] -= 1
+                # length(S) == K || throw("Error in move between occupied clusters, K=$(K) and S=$(S)")
             end
 
         end
 
     end
 
-    return llik_vec
+    return llik_vec, K, S
+end
+
+
+
+
+function update_C!(model::Model_PPMx, update_lik_params::Vector{Symbol}=[:mu, :sig, :beta])
+
+    K = length(model.state.lik_params)
+    S = StatsBase.counts(model.state.C, K)
+
+    llik_now = Vector{Float64}(undef, K)
+
+    for k in 1:K
+        indx_k = findall(model.state.C.==k)
+        llik_now[k] = llik_k(model.y[indx_k], model.X[indx_k,:], model.obsXIndx[indx_k], model.state.lik_params[k], model.state.Xstats[k], model.state.similarity)[1]
+    end
+
+    for i in 1:model.n
+        # llik_now, K, S = update_Ci!(model, i, K, S, llik_now, update_lik_params)  # full Gibbs, Algo 8
+        llik_now, K, S = update_Ci_MH!(model, i, K, S, llik_now, update_lik_params)  # MH, Algo 7
+    end
+
+    return nothing
 end

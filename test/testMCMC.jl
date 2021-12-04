@@ -31,9 +31,9 @@ y_use = (y .- y_mean) ./ y_sd
 #     end
 # end
 
-n = 100
+n = 200
 p = 2
-prop_mis = 0.3
+prop_mis = 0.1
 nmis = Int(floor(prop_mis*n*p))
 nobs = n*p - nmis
 X = Matrix{Union{Missing, Float64}}(missing, n, p)
@@ -56,11 +56,12 @@ X
 α = 1.0
 logα = log(α)
 cohesion = Cohesion_CRP(logα, 0, true)
-similarity = Similarity_NiG_indep(0.0, 0.5, 4.0, 2.0)
+# similarity = Similarity_NiG_indep(0.0, 0.5, 4.0, 2.0)
 # similarity = Similarity_NiG_indep(0.0, 0.1, 1.0, 1.0)
 # similarity = Similarity_NiG_indep(0.0, 0.1, 4.0, 4.0)
 
-# similarity = Similarity_NN(sqrt(0.5), 0.0, 1.0)
+similarity = Similarity_NN(sqrt(0.5), 0.0, 1.0)
+similarity = Similarity_NN(1.0, 0.0, 1.0)
 
 C = deepcopy(Ctrue)
 # C, K, S, lcohes, Xstat, lsimilar = sim_partition_PPMx(logα, X, similarity)
@@ -87,8 +88,8 @@ y_use = deepcopy(y)
 σ
 
 # mod = Model_PPMx(y, X, C)
-# mod = Model_PPMx(y_use, X, 0, similarity_type=:NN, init_lik_rand=false) # C_init = 0 --> n clusters ; 1 --> 1 cluster
-mod = Model_PPMx(y_use, X, 0, similarity_type=:NiG_indep, init_lik_rand=false) # C_init = 0 --> n clusters ; 1 --> 1 cluster
+mod = Model_PPMx(y_use, X, 0, similarity_type=:NN, init_lik_rand=false) # C_init = 0 --> n clusters ; 1 --> 1 cluster
+# mod = Model_PPMx(y_use, X, 0, similarity_type=:NiG_indep, init_lik_rand=false) # C_init = 0 --> n clusters ; 1 --> 1 cluster
 fieldnames(typeof(mod))
 fieldnames(typeof(mod.state))
 mod.state.C
@@ -100,7 +101,7 @@ mod.state.similarity = deepcopy(similarity)
 mod.state.similarity = Similarity_NN(sqrt(0.5), 0.0, 1.0)
 mod.state.baseline = Baseline_NormDLUnif(0.0, 0.1, 0.1, 10.0/y_sd)
 mod.prior.baseline = Prior_baseline_NormDLUnif(0.0, 10.0/y_sd, 10.0/y_sd)
-mod.prior.baseline = Prior_baseline_NormDLUnif(0.0, 10.0/y_sd, 30.0/y_sd)
+# mod.prior.baseline = Prior_baseline_NormDLUnif(0.0, 10.0/y_sd, 30.0/y_sd)
 
 mod.prior
 # mod.prior.baseline.tau02_sh = 49.0 # got rid of this
@@ -108,12 +109,12 @@ mod.prior
 
 refresh!(mod.state, mod.y, mod.X, mod.obsXIndx, true)
 mod.state.llik
-mod.state.baseline.tau0 = 0.05
+mod.state.baseline.tau0 = 1.0
 
 using Dates
 timestart = Dates.now()
 
-mcmc!(mod, 1000,
+mcmc!(mod, 500,
     save=false,
     thin=1,
     n_procs=1,
@@ -127,7 +128,7 @@ etr(timestart; n_iter_timed=1000, n_keep=1000, thin=1, outfilename="")
 
 sims = mcmc!(mod, 1000,
     save=true,
-    thin=3,
+    thin=5,
     n_procs=1,
     report_filename="",
     report_freq=100,
@@ -302,12 +303,13 @@ using RCall
 StatsBase.counts(Cpred[:,1], 0:10)
 R"hist(Ypred[,1], breaks=20)"
 
-R"  xseq = seq(from=-3.0, to=3.0, length=50)
+R"  xseq = seq(from=-2.0, to=3.0, length=50)
     Xsurf = as.matrix(expand.grid(xseq, xseq)) # fit a surface
 "
 @rget xseq Xsurf
 
 Ysurf, Csurf, Msurf = postPred(Xsurf, mod, sims)
+sims == sims0
 Ysurf_mean = mean(Ysurf, dims=1)[1,:]
 Ysurf_mean = mean(Ysurf, dims=1)[1,:] * y_sd .+ y_mean
 
@@ -323,8 +325,8 @@ trace1 = surface(Dict(
   :showscale => false,
   :type => "surface"
 ))
-# data = [trace1]
-# Plotly.plot(data)
+data = [trace1]
+Plotly.plot(data)
 
 indx_cc = findall( [ all(.!ismissing.(X[i,1:2])) for i in 1:n ] )
 trace2 = Plotly.scatter3d(Dict(

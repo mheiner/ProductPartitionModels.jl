@@ -150,10 +150,9 @@ function llik_k(y_k::Vector{T}, X_k::Union{Matrix{T}, Matrix{Union{T, Missing}}}
 
         means[iii] = deepcopy(lik_params_k.mu)
 
-        xi = deepcopy(X_k[iii,:])
         if ObsXIndx_k[iii].n_obs > 0
             indx_xiobs = ObsXIndx_k[iii].indx_obs
-            ziO = (xi[indx_xiobs] - aux_mean[indx_xiobs]) ./ aux_sd[indx_xiobs]
+            ziO = (X_k[iii, indx_xiobs] - aux_mean[indx_xiobs]) ./ aux_sd[indx_xiobs]
             means[iii] += ziO'lik_params_k.beta[indx_xiobs]
         end
 
