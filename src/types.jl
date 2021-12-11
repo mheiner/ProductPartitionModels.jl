@@ -13,19 +13,19 @@ abstract type Similarity_PPMx end
 
 mutable struct Similarity_NiG_indep <: Similarity_PPMx
 
-    # IG(sig2; shape=a, scale=b) N(mu; mean=mu0, variance=sig2/sc_div0)
+    # IG(sig2; shape=a, scale=b) N(mu; mean=mu0, variance=sig2/sc_prec0)
 
     m0::Real
-    sc_div0::Real
+    sc_prec0::Real
     a0::Real
     b0::Real
 
-    lsc_div0::Real
+    lsc_prec0::Real
     lga0::Real
     lb0::Real
 
-    Similarity_NiG_indep(m0, sc_div0, a0, b0) = new(m0, sc_div0, a0, b0,
-        log(sc_div0), SpecialFunctions.loggamma(a0), log(b0))
+    Similarity_NiG_indep(m0, sc_prec0, a0, b0) = new(m0, sc_prec0, a0, b0,
+        log(sc_prec0), SpecialFunctions.loggamma(a0), log(b0))
 end
 
 mutable struct Similarity_NN <: Similarity_PPMx
@@ -62,7 +62,7 @@ mutable struct Baseline_NormDLUnif <: Baseline_measure
 
     tau0::Real # global shrinkage scale
 
-    upper_sig::Real
+    sig_upper::Real
 end
 
 abstract type Hypers_shrinkReg end

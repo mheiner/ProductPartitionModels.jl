@@ -19,11 +19,11 @@ export llik_k, llik_all;
 #                 s2_now = (Xstats_k[j].sumx2 - Xstats_k[j].n * xbar_now^2) / (Xstats_k[j].n - 1.0)
 #                 sd_out[j] = sqrt(s2_now) # could do something else
 #             else
-#                 sd_out[j] = sqrt(similarity.b0 / (similarity.a0 + 1.0) / similarity.sc_div0) # could do something else
+#                 sd_out[j] = sqrt(similarity.b0 / (similarity.a0 + 1.0) / similarity.sc_prec0) # could do something else
 #             end
 #         else
 #             mean_out[j] = similarity.m0 # could do something else
-#             sd_out[j] = sqrt(similarity.b0 / (similarity.a0 + 1.0) / similarity.sc_div0) # could do something else
+#             sd_out[j] = sqrt(similarity.b0 / (similarity.a0 + 1.0) / similarity.sc_prec0) # could do something else
 #         end
 #     end
 

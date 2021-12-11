@@ -129,15 +129,15 @@ function log_similarity(similar::Similarity_NiG_indep, stats::Similarity_NiG_ind
         xbar = stats.sumx / stats.n
         ss = stats.sumx2 - stats.n * xbar^2
 
-        sc_div1 = similar.sc_div0 + stats.n
-        # m1 = (similar.sc_div0*similar.m0 + stats.n*xbar) / sc_div1  # never used
+        sc_prec1 = similar.sc_prec0 + stats.n
+        # m1 = (similar.sc_prec0*similar.m0 + stats.n*xbar) / sc_prec1  # never used
         a1 = similar.a0 + 0.5*stats.n
-        b1 = similar.b0 + 0.5*ss + 0.5*(stats.n * similar.sc_div0)*(xbar - similar.m0)^2 / sc_div1
+        b1 = similar.b0 + 0.5*ss + 0.5*(stats.n * similar.sc_prec0)*(xbar - similar.m0)^2 / sc_prec1
 
-        out = SpecialFunctions.loggamma(a1) - 0.5*log(sc_div1) - 0.5*stats.n*log(2π) - a1*log(b1)
+        out = SpecialFunctions.loggamma(a1) - 0.5*log(sc_prec1) - 0.5*stats.n*log(2π) - a1*log(b1)
 
         if fulldensity
-           out += 0.5*similar.lsc_div0 + similar.a0*similar.lb0 - similar.lga0
+           out += 0.5*similar.lsc_prec0 + similar.a0*similar.lb0 - similar.lga0
         end
 
     else

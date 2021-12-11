@@ -80,14 +80,14 @@ function init_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
 
     if lik_rand
         lik_params = [ LikParams_PPMxReg(randn(), # mu
-                                rand(), # sig
+                                rand() * baseline.sig_upper, # sig
                                 randn(p), # beta
                                 Hypers_DirLap(rand(Dirichlet(p, 1.0)), rand(Exponential(0.5), p), rand(Exponential(0.5*baseline.tau0))) # beta hypers
                                 )
                         for k in 1:K ]
     else
         lik_params = [ LikParams_PPMxReg(0.0, # mu
-                                0.1, # sig
+                                0.1 * baseline.sig_upper, # sig
                                 zeros(p), # beta
                                 Hypers_DirLap(fill(1.0/p, p), fill(0.5, p), 0.5*baseline.tau0) # beta hypers
                                 )
@@ -189,6 +189,8 @@ function Model_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}}
 
     prior = init_PPMx_prior()
     state = init_PPMx(y, X, deepcopy(C_init), similarity_type=similarity_type, lik_rand=init_lik_rand)
+
+    state.baseline.sig0 < prior.baseline.sig0_upper || error("sig0 in the baseline must be initialized below its prior upper bound.")
 
     return Model_PPMx(deepcopy(y), deepcopy(X), obsXIndx, n, p, prior, state)
 end
