@@ -51,6 +51,7 @@ lcohes, Xstat, lsimilar = get_lcohlsim(C, X, cohesion, similarity)
 G0 = Baseline_NormDLUnif(μ0, σ0, τ0, σ_upper)
 
 lik_params_tmp = [ simpri_lik_params(G0, p) for k in 1:K ]
+
 lik_params_tmp[1].mu = 1.5
 lik_params_tmp[2].mu = 2.5
 lik_params_tmp[3].mu = -5.0

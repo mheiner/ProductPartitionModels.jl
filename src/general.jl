@@ -116,7 +116,7 @@ function refresh!(state::State_PPMx, y::Vector{T}, X::Union{Matrix{T}, Matrix{Un
     lcohes_upd, Xstats_upd, lsimil_upd = get_lcohlsim(state.C, X, state.cohesion, state.similarity)
 
     if refresh_llik
-        llik = llik_all(y, X, state.C, obsXIndx, state.lik_params, Xstats_upd, state.similarity)
+        llik = llik_all(y, X, state.C, obsXIndx, state.lik_params, Xstats_upd, state.similarity)[1]
         state.llik = llik # depends on C, lik_params
     end
 

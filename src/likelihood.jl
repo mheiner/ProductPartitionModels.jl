@@ -141,8 +141,7 @@ function llik_k(y_k::Vector{T}, X_k::Union{Matrix{T}, Matrix{Union{T, Missing}}}
     n_k = length(y_k)
     n_k > 0 || throw("Likelihood calculation must include at least one observation.")
 
-    llik_out = 0.0
-
+    llik_out = Vector{T}(undef, n_k)
     means = Vector{T}(undef, n_k)
     vars = Vector{T}(undef, n_k)
 
@@ -163,22 +162,22 @@ function llik_k(y_k::Vector{T}, X_k::Union{Matrix{T}, Matrix{Union{T, Missing}}}
             vars[iii] += sum( lik_params_k.beta[indx_ximis].^2 )
         end
 
-        llik_out += -0.5*log(2π) - 0.5*log(vars[iii]) - 0.5*(y_k[iii] - means[iii])^2/vars[iii]
+        llik_out[iii] = -0.5*log(2π) - 0.5*log(vars[iii]) - 0.5*(y_k[iii] - means[iii])^2/vars[iii]
 
     end
 
-    return llik_out, means, vars
+    return sum(llik_out), means, vars, llik_out
 end
 function llik_k(y_k::Vector{T}, means::Vector{T}, vars::Vector{T}, sig_old::T, sig_new::T) where T <: Real
     n_k = length(y_k)
     vars_out = deepcopy(vars)
-    llik_out = 0.0
+    llik_out = Vector{T}(undef, n_k)
     for iii in 1:n_k
         vars_out[iii] -= sig_old^2
         vars_out[iii] += sig_new^2
-        llik_out += -0.5*log(2π) - 0.5*log(vars_out[iii]) - 0.5*(y_k[iii] - means[iii])^2/vars_out[iii]
+        llik_out[iii] = -0.5*log(2π) - 0.5*log(vars_out[iii]) - 0.5*(y_k[iii] - means[iii])^2/vars_out[iii]
     end
-    llik_out, means, vars_out
+    sum(llik_out), means, vars_out, llik_out
 end
 
 function llik_all(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
@@ -190,13 +189,14 @@ function llik_all(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     # n, p = size(X)
     K = maximum(C)
     # S = StatsBase.counts(C, K)
+    n = length(y)
 
-    llik_out = 0.0
+    llik_out = Vector{T}(undef, n)
 
     for k in 1:K
         indx_k = findall(C.==k)
-        llik_out += llik_k(y[indx_k], X[indx_k,:], ObsXIndx[indx_k], lik_params[k], Xstats[k], similarity)[1]
+        llik_out[indx_k] = llik_k(y[indx_k], X[indx_k,:], ObsXIndx[indx_k], lik_params[k], Xstats[k], similarity)[4]
     end
 
-    return llik_out
+    return sum(llik_out), llik_out
 end

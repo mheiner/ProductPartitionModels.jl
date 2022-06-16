@@ -14,7 +14,7 @@ function deepcopyFields(state::T, fields::Vector{Symbol}) where T
 end
 
 function postSimsInit(n_keep::Int, init_state::Union{State_PPMx},
-    monitor::Vector{Symbol}=[:C, :mu, :sig, :beta, :mu0, :sig0])
+    monitor::Vector{Symbol}=[:C, :mu, :sig, :beta, :mu0, :sig0, :llik_mat])
 
     monitor_outer = intersect(monitor, fieldnames(typeof(init_state)))
     monitor_lik = intersect(monitor, fieldnames(typeof(init_state.lik_params[1])))
@@ -24,6 +24,10 @@ function postSimsInit(n_keep::Int, init_state::Union{State_PPMx},
 
     state[:lik_params] = [ deepcopyFields(init_state.lik_params[1], monitor_lik) ]
     state[:baseline] = [ deepcopyFields(init_state.baseline, monitor_base) ]
+
+    if :llik_mat in monitor
+        state[:llik_mat] = zeros(length(init_state.C))
+    end
 
     state[:llik] = 0.0
 
@@ -90,7 +94,7 @@ function mcmc!(model::Model_PPMx, n_keep::Int;
     report_filename::String="",
     report_freq::Int=10000,
     update::Vector{Symbol}=[:C, :mu, :sig, :beta, :mu0, :sig0],
-    monitor::Vector{Symbol}=[:C, :mu, :sig, :beta, :mu0, :sig0],
+    monitor::Vector{Symbol}=[:C, :mu, :sig, :beta, :mu0, :sig0, :llik_mat],
     slice_max_iter::Int=5000
     )
 
@@ -141,7 +145,7 @@ function mcmc!(model::Model_PPMx, n_keep::Int;
             if model.state.iter % report_freq == 0
                 write(report_file, "Iter $(model.state.iter) at $(Dates.now())\n")
                 model.state.llik = llik_all(model.y, model.X, model.state.C, model.obsXIndx,
-                    model.state.lik_params, model.state.Xstats, model.state.similarity)
+                    model.state.lik_params, model.state.Xstats, model.state.similarity)[1]
                 write(report_file, "Log-likelihood $(model.state.llik)\n")
             end
 
@@ -157,14 +161,19 @@ function mcmc!(model::Model_PPMx, n_keep::Int;
             if length(monitor_base) > 0
                 sims[i][:baseline] = deepcopyFields(model.state.baseline, monitor_base)
             end
-            sims[i][:llik] = llik_all(model.y, model.X, model.state.C, model.obsXIndx,
-                model.state.lik_params, model.state.Xstats, model.state.similarity)
+            if :llik_mat in monitor
+                sims[i][:llik], sims[i][:llik_mat] = llik_all(model.y, model.X, model.state.C, model.obsXIndx,
+                    model.state.lik_params, model.state.Xstats, model.state.similarity)
+            else
+                sims[i][:llik] = llik_all(model.y, model.X, model.state.C, model.obsXIndx,
+                    model.state.lik_params, model.state.Xstats, model.state.similarity)[1]
+            end
         end
 
     end
 
     model.state.llik = llik_all(model.y, model.X, model.state.C, model.obsXIndx,
-                    model.state.lik_params, model.state.Xstats, model.state.similarity)
+                    model.state.lik_params, model.state.Xstats, model.state.similarity)[1]
 
     if externalfile
         close(report_file)

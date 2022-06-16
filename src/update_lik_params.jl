@@ -28,12 +28,12 @@ function llik_k_forEsliceBeta(beta_cand::Vector{T}, args::TargetArgs_EsliceBetas
     lik_params_cand.beta = beta_cand
 
     return llik_k(args.y_k, args.X_k, args.ObsXIndx_k, lik_params_cand,
-                  args.Xstats_k, args.similarity)
+                  args.Xstats_k, args.similarity)[1:3]
 end
 
 function llik_k_forSliceSig(sig_cand::Real, args::TargetArgs_sliceSig)
 
-    llik_kk, means, vars = llik_k(args.y_k, args.means, args.vars, args.sig_old, sig_cand)
+    llik_kk, means, vars = llik_k(args.y_k, args.means, args.vars, args.sig_old, sig_cand)[1:3]
 
     prior_var_beta = args.tau^2 .* sig_cand^2 .*
         args.tau0^2 .* args.phi.^2 .* args.psi
@@ -92,7 +92,7 @@ function update_lik_params!(model::Model_PPMx,
             )
         else
             beta_upd_stats = llik_k(model.y[indx_k], model.X[indx_k,:], model.obsXIndx[indx_k],
-                model.state.lik_params[k], model.state.Xstats[k], model.state.similarity)
+                model.state.lik_params[k], model.state.Xstats[k], model.state.similarity)[1:3]
         end
 
         ## update sig, which preserves means to be modified in the update for means

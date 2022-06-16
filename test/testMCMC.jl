@@ -3,6 +3,10 @@
 ## go into package mode and enter: activate
 ## to run this code without modifying the ProductPartitionModels package
 
+using Pkg
+Pkg.activate()
+
+
 using ProductPartitionModels
 using StatsBase
 using Random
@@ -151,7 +155,7 @@ sims = mcmc!(model, 1000,
     report_freq=100,
     # update=[:C, :mu, :sig, :mu0, :sig0],
     update=[:C, :mu, :sig, :beta, :mu0, :sig0],
-    monitor=[:C, :mu, :sig, :beta, :mu0, :sig0]
+    monitor=[:C, :mu, :sig, :beta, :mu0, :sig0, :llik_mat]
 )
 
 sims0 = deepcopy(sims)
@@ -163,6 +167,7 @@ sims[2][:lik_params][2]
 model.state.lik_params[1].mu
 
 sims_llik = [ sims[ii][:llik] for ii in 1:length(sims) ]
+sims_llik_mat = permutedims( hcat( [ sims[ii][:llik_mat] for ii in 1:length(sims) ]...) )
 sims_K = [ maximum(sims[ii][:C]) for ii in 1:length(sims) ]
 Kmax = maximum(sims_K)
 C_mat = permutedims( hcat( [ sims[ii][:C] for ii in 1:length(sims) ]...) )
@@ -173,6 +178,9 @@ using Plots
 Plots.PlotlyBackend()
 
 
+Plots.plot(sims_llik_mat[:,1])
+Plots.plot(sims_llik_mat[:,10])
+Plots.plot(sum(sims_llik_mat, dims=2))
 Plots.plot(sims_llik)
 Plots.plot(sims_K)
 Plots.plot(sims_S)
@@ -269,8 +277,8 @@ trace1 = Plotly.scatter3d(Dict(
   :mode => "markers",
   :marker => Dict(:color => colors[C_color[indx_cc]], :size => 5.0, :symbol => symbols3d[C_shape[indx_cc]])
 ))
-Plotly.plot([trace1], Layout(height=700, width=700, scene_aspectratio=attr(x=1, y=1, z=1), 
-            scene=attr(xaxis_title="x1", yaxis_title="x2", zaxis_title="y", 
+Plotly.plot([trace1], Layout(height=700, width=700, scene_aspectratio=attr(x=1, y=1, z=1),
+            scene=attr(xaxis_title="x1", yaxis_title="x2", zaxis_title="y",
             xaxis=attr(range=x1range), yaxis=attr(range=x2range), zaxis=attr(range=yrange)),
             title="Complete cases"))
 
@@ -282,7 +290,7 @@ trace1_flat = Plotly.scatter(Dict(
   :mode => "markers",
   :marker => Dict(:color => colors[C_color[indx_cc]], :size => 5.0, :symbol => symbols3d[C_shape[indx_cc]])
 ))
-Plotly.plot([trace1_flat], Layout(height=500, width=500, scene_aspectratio=attr(x=1, y=1), 
+Plotly.plot([trace1_flat], Layout(height=500, width=500, scene_aspectratio=attr(x=1, y=1),
             xaxis_range=x1range, yaxis_range=x2range,
             xaxis_title="x1", yaxis_title="x2", title="Complete cases; x1 and x2"))
 
@@ -294,11 +302,11 @@ Plotly.plot([trace1_flat], Layout(height=500, width=500, scene_aspectratio=attr(
 #   :opacity => 0.7,
 #   :showscale => false,
 #   :mode => "markers",
-#   :marker => Dict(:color => colors[C_use[indx_x2m]], :size => 5.0, 
+#   :marker => Dict(:color => colors[C_use[indx_x2m]], :size => 5.0,
 #   :symbol => symbols3d[C_use[indx_x2m]])
 # ))
-# Plotly.plot([trace2], Layout(height=700, width=700, scene_aspectratio=attr(x=1, y=1, z=1), 
-#             scene=attr(xaxis_title="x1", yaxis_title="x2", zaxis_title="y", 
+# Plotly.plot([trace2], Layout(height=700, width=700, scene_aspectratio=attr(x=1, y=1, z=1),
+#             scene=attr(xaxis_title="x1", yaxis_title="x2", zaxis_title="y",
 #             xaxis=attr(range=x1range), yaxis=attr(range=x2range), zaxis=attr(range=yrange))))
 
 trace2_flat = Plotly.scatter(Dict(
@@ -309,7 +317,7 @@ trace2_flat = Plotly.scatter(Dict(
   :mode => "markers",
   :marker => Dict(:color => colors[C_color[indx_x2m]], :size => 5.0, :symbol => symbols3d[C_shape[indx_x2m]])
 ))
-Plotly.plot([trace2_flat], Layout(height=500, width=500, scene_aspectratio=attr(x=1, y=1), 
+Plotly.plot([trace2_flat], Layout(height=500, width=500, scene_aspectratio=attr(x=1, y=1),
             xaxis_range=x1range, yaxis_range=yrange,
             xaxis_title="x1", yaxis_title="y", title="x2 missing"))
 
@@ -334,7 +342,7 @@ trace3_flat = Plotly.scatter(Dict(
   :mode => "markers",
   :marker => Dict(:color => colors[C_color[indx_x1m]], :size => 5.0, :symbol => symbols3d[C_shape[indx_x1m]])
 ))
-Plotly.plot([trace3_flat], Layout(height=500, width=500, scene_aspectratio=attr(x=1, y=1), 
+Plotly.plot([trace3_flat], Layout(height=500, width=500, scene_aspectratio=attr(x=1, y=1),
             xaxis_range=x2range, yaxis_range=yrange,
             xaxis_title="x2", yaxis_title="y", title="x1 missing"))
 
@@ -359,7 +367,7 @@ trace4_flat = Plotly.scatter(Dict(
   :mode => "markers",
   :marker => Dict(:color => colors[C_color[indx_allmiss]], :size => 9.0, :symbol => symbols3d[C_shape[indx_allmiss]])
 ))
-Plotly.plot([trace4_flat], Layout(height=500, width=500, scene_aspectratio=attr(x=1, y=1), 
+Plotly.plot([trace4_flat], Layout(height=500, width=500, scene_aspectratio=attr(x=1, y=1),
             xaxis_range=[-0.5, 0.5], yaxis_range=yrange,
             xaxis_title="", yaxis_title="y", title="x1 and x2 missing",
             xaxis_tickmode="array", xaxis_tickvals=[0], xaxis_ticktext=[""]))
