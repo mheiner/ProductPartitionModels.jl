@@ -80,7 +80,7 @@ function init_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
 
     if lik_rand
         lik_params = [ LikParams_PPMxReg(randn(), # mu
-                                rand() * baseline.sig_upper, # sig
+                                rand(Uniform(baseline.sig_lower, baseline.sig_upper)), # sig
                                 randn(p), # beta
                                 Hypers_DirLap(rand(Dirichlet(p, 1.0)), rand(Exponential(0.5), p), rand(Exponential(0.5*baseline.tau0))) # beta hypers
                                 )

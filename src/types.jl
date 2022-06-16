@@ -63,6 +63,9 @@ mutable struct Baseline_NormDLUnif <: Baseline_measure
     tau0::Real # global shrinkage scale
 
     sig_upper::Real
+    sig_lower::Real
+
+    Baseline_NormDLUnif(mu0, sig0, tau0, sig_upper) = new(m0, sig0, tau0, sig_upper, 1.0e-6) # lower bound on error sd
 end
 
 abstract type Hypers_shrinkReg end

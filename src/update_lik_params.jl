@@ -98,7 +98,7 @@ function update_lik_params!(model::Model_PPMx,
         ## update sig, which preserves means to be modified in the update for means
         if (:sig in update)
             model.state.lik_params[k].sig, sig_upd_stats, iters_sslice = shrinkSlice(model.state.lik_params[k].sig,
-                0.0, model.state.baseline.sig_upper,
+                model.state.baseline.sig_lower, model.state.baseline.sig_upper,
                 llik_k_forSliceSig,
                 TargetArgs_sliceSig(model.y[indx_k], beta_upd_stats[2], beta_upd_stats[3], model.state.lik_params[k].sig,
                                     model.state.lik_params[k].beta, model.state.baseline.tau0, model.state.lik_params[k].beta_hypers.tau,

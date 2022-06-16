@@ -79,7 +79,7 @@ function simpri_lik_params(basemeasure::Baseline_NormDLUnif, p::Int)
     β = randn(p) .* τ .* ϕ .* sqrt.(ψ)
 
     μ = randn() .* basemeasure.sig0 .+ basemeasure.mu0
-    σ = rand() .* basemeasure.sig_upper
+    σ = rand(Uniform(basemeasure.sig_lower, basemeasure.sig_upper))
 
     return LikParams_PPMxReg(μ, σ, β, Hypers_DirLap(ϕ, ψ, τ))
 end
@@ -104,7 +104,7 @@ function simpri_lik_params(basemeasure::Baseline_NormDLUnif, p::Int, lik_params_
     end
 
     if (:sig in whichsim)
-        σ = rand() .* basemeasure.sig_upper
+        σ = rand(Uniform(basemeasure.sig_lower, basemeasure.sig_upper))
     else
         σ = deepcopy(lik_params_template.sig)
     end
@@ -162,7 +162,7 @@ function sim_lik(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} 
 
     p = size(X, 2)
     K = maximum(C)
-    
+
     lik_params = [ simpri_lik_params(basemeasure, p) for k in 1:K ]
 
     y, μ, β, σ = sim_lik(C, X, similarity, Xstats, lik_params)
