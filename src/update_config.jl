@@ -341,7 +341,8 @@ function update_C!(model::Model_PPMx, update_lik_params::Vector{Symbol}=[:mu, :s
         llik_now[k] = llik_k(model.y[indx_k], model.X[indx_k,:], model.obsXIndx[indx_k], model.state.lik_params[k], model.state.Xstats[k], model.state.similarity)[1]
     end
 
-    for i in 1:model.n
+    obs_ord = StatsBase.sample(1:model.n, model.n, replace=false)
+    for i in obs_ord
         # llik_now, K, S = update_Ci!(model, i, K, S, llik_now, update_lik_params)  # full Gibbs, Algo 8
         llik_now, K, S = update_Ci_MH!(model, i, K, S, llik_now, update_lik_params)  # MH, Algo 7
     end

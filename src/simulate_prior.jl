@@ -1,7 +1,7 @@
 # using Core: Matrix, Vector
 # simulate_prior.jl
 
-export sim_partition_PPMx, sim_lik;
+export sim_partition_PPMx, simpri_lik_params, sim_lik;
 
 function sim_partition_PPMx(logα::Real, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} where T <: Real,
     similarity::Similarity_PPMx)
@@ -34,7 +34,7 @@ function sim_partition_PPMx(logα::Real, X::Union{Matrix{T}, Matrix{Union{T, Mis
 
                 # stats for similarity with obs i added (each X[i,:], 1:p); similarity with obs i added
                 for j in 1:p
-                    stats_cand[k][j] = Similarity_stats(similarity, stats[k][j], X[i,j], :add)
+                    stats_cand[k][j] = Similarity_stats(stats[k][j], X[i,j], :add)
                     lsimilar_cand[k][j] = log_similarity(similarity, stats_cand[k][j], true)
                 end
 
@@ -115,13 +115,12 @@ end
 function sim_lik(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} where T <: Real,
     similarity::TT where TT <: Similarity_PPMx,
     Xstats::Vector{Vector{TTT}} where TTT <: Similarity_PPMxStats,
-    basemeasure::Baseline_measure)
+    lik_params::Vector{TTTT} where TTTT <: LikParams_PPMxReg)
 
     n, p = size(X)
     K = maximum(C)
     S = StatsBase.counts(C, K)
 
-    lik_params = [ simpri_lik_params(basemeasure, p) for k in 1:K ]
     μ = [ lik_params[k].mu for k in 1:K ]
     σ = [ lik_params[k].sig for k in 1:K ]
     β = [ lik_params[k].beta[j] for k in 1:K, j in 1:p ]
@@ -153,6 +152,20 @@ function sim_lik(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} 
         y[C_indx_now] = randn(S[k]) .* σ[k] + Xfill[C_indx_now,:] * β[k,:] .+ μ[k]
 
     end
+
+    return y, μ, β, σ
+end
+function sim_lik(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} where T <: Real,
+    similarity::TT where TT <: Similarity_PPMx,
+    Xstats::Vector{Vector{TTT}} where TTT <: Similarity_PPMxStats,
+    basemeasure::Baseline_measure)
+
+    p = size(X, 2)
+    K = maximum(C)
+    
+    lik_params = [ simpri_lik_params(basemeasure, p) for k in 1:K ]
+
+    y, μ, β, σ = sim_lik(C, X, similarity, Xstats, lik_params)
 
     return y, μ, β, σ
 end

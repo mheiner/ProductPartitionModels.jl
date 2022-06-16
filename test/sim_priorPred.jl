@@ -70,8 +70,8 @@ lcohes, Xstat, lsimilar = get_lcohlsim(C, X, cohesion, similarity)
 μ0 = 0.0
 σ0 = 20.0
 τ0 = 1.0 # scale of DL shrinkage
-upper_σ = 10.0
-G0 = Baseline_NormDLUnif(μ0, σ0, τ0, upper_σ)
+σ_upper = 10.0
+G0 = Baseline_NormDLUnif(μ0, σ0, τ0, σ_upper)
 
 y, μ, β, σ = sim_lik(C, X, similarity, Xstat, G0)
 
@@ -100,8 +100,8 @@ zlim = [minimum(y), maximum(y)]
 layout = Layout( # broken?
     Dict(
     :scene => Dict(
-        :xaxis => Dict(:range => xlim), 
-        :yaxis => Dict(:range => ylim), 
+        :xaxis => Dict(:range => xlim),
+        :yaxis => Dict(:range => ylim),
         :zaxis => Dict(:range => zlim)
         )
     )
@@ -158,7 +158,3 @@ trace4 = scatter3d(Dict(
   :marker => Dict(:color => colors[C[indx_allmiss]], :size => 5.0)
 ))
 plot([trace4])
-
-
-
-
