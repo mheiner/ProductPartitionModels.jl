@@ -29,7 +29,7 @@ sig_now = rand()*2.0
 
 for ii in 1:n_iter
 
-    b_now, trash = ellipSlice(b_now, 
+    b_now, trash = ellipSlice(b_now,
         prior_beta_mean, prior_beta_var,
         logtarget, TargetArgs_NormRegBeta(y, X, sig_now))
     sig_now, trash = shrinkSlice(sig_now, 0.0, prior_sig_upper,
@@ -38,7 +38,7 @@ for ii in 1:n_iter
     sim_b[ii,:] = b_now
     sim_sig[ii] = sig_now
 
-    if ii % 100 == 0 
+    if ii % 100 == 0
         println("iter $ii of $n_iter")
     end
 end
@@ -51,4 +51,3 @@ sig
 n_burn = 1000
 plot(sim_b[(n_burn+1):n_iter,:])
 plot(sim_sig[(n_burn+1):n_iter])
-

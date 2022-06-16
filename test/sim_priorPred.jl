@@ -50,8 +50,8 @@ X
 
 # [ mean(skipmissing(X[:,j])) for j in 1:size(X,2) ]
 
-similarity = Similarity_NiG_indep(0.0, 1.0, 4.0, 4.0)
-# similarity = Similarity_NiG_indep(0.0, 0.1, 1.0, 1.0)
+similarity = Similarity_NNiG_indep(0.0, 1.0, 4.0, 4.0)
+# similarity = Similarity_NNiG_indep(0.0, 0.1, 1.0, 1.0)
 α = 0.5
 logα = log(α)
 

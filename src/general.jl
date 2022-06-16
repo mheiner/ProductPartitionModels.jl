@@ -98,8 +98,10 @@ function init_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
 
     if similarity_type == :NN
         similarity = Similarity_NN(1.0, 0.0, 1.0)
-    elseif similarity_type == :NiG_indep
-        similarity = Similarity_NiG_indep(0.0, 0.1, 1.0, 1.0)
+    elseif similarity_type == :NNiG_indep
+        similarity = Similarity_NNiG_indep(0.0, 0.1, 2.0, 2.0)
+    elseif similarity_type == :NNiChisq_indep
+        similarity = Similarity_NNiChisq_indep(0.0, 0.1, 4.0, 1.0)
     end
 
     lcohesions, Xstats, lsimilarities = get_lcohlsim(C, X, cohesion, similarity)

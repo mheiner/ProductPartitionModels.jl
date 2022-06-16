@@ -75,10 +75,11 @@ X
 logα = log(α)
 cohesion = Cohesion_CRP(logα, 0, true)
 
-# similarity = Similarity_NiG_indep(0.0, 0.5, 4.0, 2.0)
-# similarity = Similarity_NiG_indep(0.0, 0.1, 1.0, 1.0)
-# similarity = Similarity_NiG_indep(0.0, 0.1, 4.0, 4.0)
-similarity = Similarity_NiG_indep(0.0, 2.0, 4.0, 0.2)
+# similarity = Similarity_NNiG_indep(0.0, 0.5, 4.0, 2.0)
+# similarity = Similarity_NNiG_indep(0.0, 0.1, 1.0, 1.0)
+# similarity = Similarity_NNiG_indep(0.0, 0.1, 4.0, 4.0)
+# similarity = Similarity_NNiG_indep(0.0, 2.0, 4.0, 0.2)
+similarity = Similarity_NNiChisq_indep(0.0, 0.1, 4.0, 0.1)
 
 # similarity = Similarity_NN(sqrt(0.5), 0.0, 1.0)
 # similarity = Similarity_NN(1.0, 0.0, 1.0)
@@ -109,7 +110,7 @@ y_use = deepcopy(y)
 
 # model = Model_PPMx(y, X, C)
 # model = Model_PPMx(y_use, X, 0, similarity_type=:NN, init_lik_rand=false) # C_init = 0 --> n clusters ; 1 --> 1 cluster
-model = Model_PPMx(y_use, X, 0, similarity_type=:NiG_indep, init_lik_rand=false) # C_init = 0 --> n clusters ; 1 --> 1 cluster
+model = Model_PPMx(y_use, X, 0, similarity_type=:NNiChisq_indep, init_lik_rand=false) # C_init = 0 --> n clusters ; 1 --> 1 cluster
 fieldnames(typeof(model))
 fieldnames(typeof(model.state))
 model.state.C

@@ -3,16 +3,16 @@
 export Similarity_stats, log_similarity;
 
 
-function Similarity_stats(similar::Similarity_NiG_indep,
+function Similarity_stats(similar::Union{Similarity_NNiG_indep, Similarity_NNiChisq_indep},
     x::Vector{T} where T <: Real)
 
     n = length(x)
     sumx = sum(x)
     sumx2 = sum( x.^2 )
 
-    return Similarity_NiG_indep_stats(n, sumx, sumx2)
+    return Similarity_NNiG_indep_stats(n, sumx, sumx2) # stats same between Similarity_NNiG_indep, Similarity_NNiChisq_indep
 end
-function Similarity_stats(similar::Similarity_NiG_indep,
+function Similarity_stats(similar::Union{Similarity_NNiG_indep, Similarity_NNiChisq_indep},
     x::Vector{Union{Missing, T}} where T <: Real)
 
     obs_indx = findall(.!ismissing.(x))
@@ -26,9 +26,9 @@ function Similarity_stats(similar::Similarity_NiG_indep,
         sumx2 = 0
     end
 
-    return Similarity_NiG_indep_stats(n, sumx, sumx2)
+    return Similarity_NNiG_indep_stats(n, sumx, sumx2) # stats same between Similarity_NNiG_indep, Similarity_NNiChisq_indep
 end
-function Similarity_stats(existing::Similarity_NiG_indep_stats, x::Real, action::Symbol=:add)
+function Similarity_stats(existing::Similarity_NNiG_indep_stats, x::Real, action::Symbol=:add)
 
     if action == :add
 
@@ -44,10 +44,10 @@ function Similarity_stats(existing::Similarity_NiG_indep_stats, x::Real, action:
 
     end
 
-    return Similarity_NiG_indep_stats(n, sumx, sumx2)
+    return Similarity_NNiG_indep_stats(n, sumx, sumx2)
 end
-function Similarity_stats(existing::Similarity_NiG_indep_stats, x::Missing, action::Symbol=:add)
-    return Similarity_NiG_indep_stats(existing.n, existing.sumx, existing.sumx2)
+function Similarity_stats(existing::Similarity_NNiG_indep_stats, x::Missing, action::Symbol=:add)
+    return Similarity_NNiG_indep_stats(existing.n, existing.sumx, existing.sumx2)
 end
 
 
@@ -122,7 +122,8 @@ function logdens_nn_marg(sig2::T, m0::T, v0::T, sumx::T, sumx2::T, n::Int) where
     return -0.5 * (nl2p + logdet + m)
 end
 
-function log_similarity(similar::Similarity_NiG_indep, stats::Similarity_NiG_indep_stats, fulldensity::Bool=true)
+function log_similarity(similar::Union{Similarity_NNiG_indep, Similarity_NNiChisq_indep},
+    stats::Similarity_NNiG_indep_stats, fulldensity::Bool=true)
 
     if stats.n > 0
 

@@ -2,7 +2,7 @@
 
 export llik_k, llik_all;
 
-# function aux_moments_k(Xstats_k::Vector{Similarity_NiG_indep_stats}, similarity::Similarity_NiG_indep)
+# function aux_moments_k(Xstats_k::Vector{Similarity_NNiG_indep_stats}, similarity::Similarity_NNiG_indep)
 
 #   # raw moments, no prior unless empty
 
@@ -30,7 +30,7 @@ export llik_k, llik_all;
 #     return (mean_out, sd_out)
 # end
 
-function aux_moments_k(Xstats_k::Vector{Similarity_NiG_indep_stats}, similarity::Similarity_NiG_indep)
+function aux_moments_k(Xstats_k::Vector{Similarity_NNiG_indep_stats}, similarity::Union{Similarity_NNiG_indep, Similarity_NNiChisq_indep})
 
     ## Unit-information N-IG priors
 
@@ -58,7 +58,7 @@ function aux_moments_k(Xstats_k::Vector{Similarity_NiG_indep_stats}, similarity:
     return (mean_out, sd_out)
 end
 
-# function aux_moments_k(Xstats_k::Vector{Similarity_NiG_indep_stats}, similarity::Similarity_NiG_indep, phi::T=1.00, n0::T=1.00) where T <: Real
+# function aux_moments_k(Xstats_k::Vector{Similarity_NNiG_indep_stats}, similarity::Similarity_NNiG_indep, phi::T=1.00, n0::T=1.00) where T <: Real
 
 #     ## general N-IG priors
 
@@ -122,7 +122,7 @@ end
 
 
 
-function aux_moments_empty(similarity::Similarity_NiG_indep)
+function aux_moments_empty(similarity::Union{Similarity_NNiG_indep, Similarity_NNiChisq_indep})
     return ( deepcopy(similarity.m0), sqrt(similarity.b0 / similarity.a0) )
 end
 function aux_moments_empty(similarity::Similarity_NN)

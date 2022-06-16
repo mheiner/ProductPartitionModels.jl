@@ -1,8 +1,8 @@
 # types.jl
 
 export Cohesion_PPM,
-Similarity_PPMx, Similarity_NiG_indep, Similarity_NN,
-Similarity_PPMxStats, Similarity_NiG_indep_stats, Similarity_NN_stats,
+Similarity_PPMx, Similarity_NNiG_indep, Similarity_NNiChisq_indep, Similarity_NN,
+Similarity_PPMxStats, Similarity_NNiG_indep_stats, Similarity_NN_stats,
 Baseline_measure, Baseline_NormDLUnif,
 Hypers_shrinkReg, Hypers_DirLap,
 LikParams_PPMx, LikParams_PPMxReg;
@@ -11,7 +11,7 @@ abstract type Cohesion_PPM end
 
 abstract type Similarity_PPMx end
 
-mutable struct Similarity_NiG_indep <: Similarity_PPMx
+mutable struct Similarity_NNiG_indep <: Similarity_PPMx
 
     # IG(sig2; shape=a, scale=b) N(mu; mean=mu0, variance=sig2/sc_prec0)
 
@@ -24,8 +24,32 @@ mutable struct Similarity_NiG_indep <: Similarity_PPMx
     lga0::Real
     lb0::Real
 
-    Similarity_NiG_indep(m0, sc_prec0, a0, b0) = new(m0, sc_prec0, a0, b0,
+    Similarity_NNiG_indep(m0, sc_prec0, a0, b0) = new(m0, sc_prec0, a0, b0,
         log(sc_prec0), SpecialFunctions.loggamma(a0), log(b0))
+end
+
+mutable struct Similarity_NNiChisq_indep <: Similarity_PPMx
+
+    # similarity of x vector is marginal density of x when
+    # x_i | mu, sig2 ~iid N(mean = mu, variance = sig2)
+    # p(mu, sig2) = N(mu; mean = mu0, variance = sig2/sc_prec0) IG(sig2; shape = a, scale = b)
+
+    m0::Real
+    sc_prec0::Real
+
+    nu0::Real
+    s20::Real
+
+    a0::Real # inverse-gamma shape parameter
+    b0::Real # inverse-gamma scale parameter
+
+    lsc_prec0::Real
+    lga0::Real
+    lb0::Real
+
+    Similarity_NNiChisq_indep(m0, sc_prec0, nu0, s20) = new(m0, sc_prec0, nu0, s20,
+        0.5*nu0, 0.5*nu0*s20,
+        log(sc_prec0), SpecialFunctions.loggamma(0.5*nu0), log(0.5*nu0*s20))
 end
 
 mutable struct Similarity_NN <: Similarity_PPMx
@@ -41,7 +65,7 @@ end
 
 abstract type Similarity_PPMxStats end
 
-mutable struct Similarity_NiG_indep_stats <: Similarity_PPMxStats
+mutable struct Similarity_NNiG_indep_stats <: Similarity_PPMxStats
     n::Int
     sumx::Real
     sumx2::Real
