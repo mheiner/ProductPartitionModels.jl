@@ -14,6 +14,7 @@ using StatsFuns: logsumexp
 
 include("types.jl")
 include("general.jl")
+# include("mathtools.jl")
 
 include("cohesion.jl")
 include("similarity.jl")

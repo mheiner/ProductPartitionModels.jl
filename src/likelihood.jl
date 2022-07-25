@@ -42,16 +42,16 @@ function aux_moments_k(Xstats_k::Vector{Similarity_NNiG_indep_stats}, similarity
     for j in 1:p
         n_now = float(Xstats_k[j].n)
         np1 = n_now + 1.0
-        mean_out[j] = (similarity.m0 + Xstats_k[j].sumx) / np1 # could do something else
+        @inbounds mean_out[j] = (similarity.m0 + Xstats_k[j].sumx) / np1 # could do something else
 
         s0 = similarity.b0 / similarity.a0 # prior harmonic mean
 
         if n_now > 0.0
             xbar_now = Xstats_k[j].sumx / n_now
             ss_now = (Xstats_k[j].sumx2 - n_now * xbar_now^2)
-            sd_out[j] = sqrt( ( s0 + ss_now + n_now * (xbar_now - similarity.m0)^2 / np1 ) / np1 ) # could do something else
+            @inbounds sd_out[j] = sqrt( ( s0 + ss_now + n_now * (xbar_now - similarity.m0)^2 / np1 ) / np1 ) # could do something else
         else
-            sd_out[j] = sqrt(s0)
+            @inbounds sd_out[j] = sqrt(s0)
         end
     end
 
@@ -151,18 +151,18 @@ function llik_k(y_k::Vector{T}, X_k::Union{Matrix{T}, Matrix{Union{T, Missing}}}
 
         if ObsXIndx_k[iii].n_obs > 0
             indx_xiobs = ObsXIndx_k[iii].indx_obs
-            ziO = (X_k[iii, indx_xiobs] - aux_mean[indx_xiobs]) ./ aux_sd[indx_xiobs]
+            @inbounds ziO = (X_k[iii, indx_xiobs] - aux_mean[indx_xiobs]) ./ aux_sd[indx_xiobs]
             means[iii] += ziO'lik_params_k.beta[indx_xiobs]
         end
 
-        vars[iii] = lik_params_k.sig^2
+        @inbounds vars[iii] = lik_params_k.sig^2
 
         if ObsXIndx_k[iii].n_mis > 0
             indx_ximis = ObsXIndx_k[iii].indx_mis
-            vars[iii] += sum( lik_params_k.beta[indx_ximis].^2 )
+            @inbounds vars[iii] += sum( lik_params_k.beta[indx_ximis].^2 )
         end
 
-        llik_out[iii] = -0.5*log(2π) - 0.5*log(vars[iii]) - 0.5*(y_k[iii] - means[iii])^2/vars[iii]
+        @inbounds llik_out[iii] = -0.5*log(2π) - 0.5*log(vars[iii]) - 0.5*(y_k[iii] - means[iii])^2/vars[iii]
 
     end
 
@@ -175,7 +175,7 @@ function llik_k(y_k::Vector{T}, means::Vector{T}, vars::Vector{T}, sig_old::T, s
     for iii in 1:n_k
         vars_out[iii] -= sig_old^2
         vars_out[iii] += sig_new^2
-        llik_out[iii] = -0.5*log(2π) - 0.5*log(vars_out[iii]) - 0.5*(y_k[iii] - means[iii])^2/vars_out[iii]
+        @inbounds llik_out[iii] = -0.5*log(2π) - 0.5*log(vars_out[iii]) - 0.5*(y_k[iii] - means[iii])^2/vars_out[iii]
     end
     sum(llik_out), means, vars_out, llik_out
 end
@@ -195,7 +195,7 @@ function llik_all(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
 
     for k in 1:K
         indx_k = findall(C.==k)
-        llik_out[indx_k] = llik_k(y[indx_k], X[indx_k,:], ObsXIndx[indx_k], lik_params[k], Xstats[k], similarity)[4]
+        @inbounds llik_out[indx_k] = llik_k(y[indx_k], X[indx_k,:], ObsXIndx[indx_k], lik_params[k], Xstats[k], similarity)[4]
     end
 
     return sum(llik_out), llik_out

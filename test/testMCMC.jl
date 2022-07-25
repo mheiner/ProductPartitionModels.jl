@@ -40,6 +40,15 @@ y_use = (y .- y_mean) ./ y_sd
 #     end
 # end
 
+
+X = permutedims( reshape([0.71441577,  0.1611974,
+-0.50903217, -1.3394388,
+0.61632479, -1.1820480,
+0.07608585,  0.4127900,
+-0.47963237, -1.2658420], 2, 5) )
+y_use = [-0.5925779, 0.7046317, -1.7138394, -0.9799857, -0.6800680]
+
+
 Random.seed!(220607)
 
 n = 100
@@ -70,8 +79,8 @@ for i in findall(Ctrue .== 3)
 end
 X
 
-# α = 0.5
-α = 1.0
+α = 1.5
+# α = 1.0
 logα = log(α)
 cohesion = Cohesion_CRP(logα, 0, true)
 
@@ -79,10 +88,10 @@ cohesion = Cohesion_CRP(logα, 0, true)
 # similarity = Similarity_NNiG_indep(0.0, 0.1, 1.0, 1.0)
 # similarity = Similarity_NNiG_indep(0.0, 0.1, 4.0, 4.0)
 # similarity = Similarity_NNiG_indep(0.0, 2.0, 4.0, 0.2)
-similarity = Similarity_NNiChisq_indep(0.0, 0.1, 4.0, 0.1)
+similarity = Similarity_NNiChisq_indep(0.0, 0.5, 8.0, 0.5^2) # m0, sc_prec0, nu0, s20
 
 # similarity = Similarity_NN(sqrt(0.5), 0.0, 1.0)
-# similarity = Similarity_NN(1.0, 0.0, 1.0)
+similarity = Similarity_NN(1.0, 0.0, 1.0)
 
 C = deepcopy(Ctrue)
 # C, K, S, lcohes, Xstat, lsimilar = sim_partition_PPMx(logα, X, similarity)
@@ -90,12 +99,15 @@ C = deepcopy(Ctrue)
 # K
 # S
 
+C = [1,2,3]
+
 K = maximum(C)
 lcohes, Xstat, lsimilar = get_lcohlsim(C, X, cohesion, similarity)
+sum(lcohes + vcat(lsimilar...))
 
 ## G0; controls only y|x
-μ0 = 0.5
-σ0 = 1.0
+μ0 = 0.0
+σ0 = 5.0
 τ0 = 1.0 # scale of DL shrinkage
 σ_upper = 10.0
 G0 = Baseline_NormDLUnif(μ0, σ0, τ0, σ_upper)
@@ -109,7 +121,7 @@ y_use = deepcopy(y)
 σ
 
 # model = Model_PPMx(y, X, C)
-# model = Model_PPMx(y_use, X, 0, similarity_type=:NN, init_lik_rand=false) # C_init = 0 --> n clusters ; 1 --> 1 cluster
+model = Model_PPMx(y_use, X, 0, similarity_type=:NN, init_lik_rand=false) # C_init = 0 --> n clusters ; 1 --> 1 cluster
 model = Model_PPMx(y_use, X, 0, similarity_type=:NNiChisq_indep, init_lik_rand=false) # C_init = 0 --> n clusters ; 1 --> 1 cluster
 fieldnames(typeof(model))
 fieldnames(typeof(model.state))
@@ -136,6 +148,7 @@ model.state.baseline.tau0 = 0.1
 using Dates
 timestart = Dates.now()
 
+# @profview mcmc!(model, 1000,
 mcmc!(model, 1000,
     save=false,
     thin=1,
@@ -143,19 +156,22 @@ mcmc!(model, 1000,
     report_filename="",
     report_freq=100,
     # update=[:C, :mu, :sig, :mu0, :sig0]
+    # update=[:C, :mu]
     update=[:C, :mu, :sig, :beta, :mu0, :sig0]
 )
 
 etr(timestart; n_iter_timed=1000, n_keep=1000, thin=1, outfilename="")
 
-sims = mcmc!(model, 1000,
+sims = mcmc!(model, 10000,
     save=true,
-    thin=5,
+    thin=1,
     n_procs=1,
     report_filename="",
     report_freq=100,
     # update=[:C, :mu, :sig, :mu0, :sig0],
     update=[:C, :mu, :sig, :beta, :mu0, :sig0],
+    # update=[:C, :mu],
+    # monitor=[:C],
     monitor=[:C, :mu, :sig, :beta, :mu0, :sig0, :llik_mat]
 )
 
@@ -188,6 +204,17 @@ Plots.plot(sims_S)
 
 [ sims[ii][:C][18] for ii in 1:length(sims) ]
 counts([ sims[ii][:C][57] for ii in 1:length(sims) ])
+
+counts(sims_K) ./ float(length(sims))
+
+mean( [(C_mat[ii,1] == C_mat[ii,2]) & (C_mat[ii,1] != C_mat[ii,3]) for ii in 1:length(sims)] )
+mean( [(C_mat[ii,1] == C_mat[ii,3]) & (C_mat[ii,1] != C_mat[ii,2]) for ii in 1:length(sims)] )
+mean( [(C_mat[ii,2] == C_mat[ii,3]) & (C_mat[ii,1] != C_mat[ii,2]) for ii in 1:length(sims)] )
+
+
+autocor(sims_K)
+pacf(float.(sims_K), 0:20)
+pacf(float.(C_mat[:,3]), 0:20)
 
 ## monitoring lik_params is only useful if C is not changing
 Kuse = 3
@@ -455,3 +482,15 @@ trace2 = Plotly.scatter3d(Dict(
 
 data = [trace1, trace2]
 Plotly.plot(data)
+
+
+
+## log-density values at prespecified X and y_k
+Xpred = 0.0 .* X
+Xpred[:,2] += randn(size(Xpred,1))
+Xpred
+
+ypred = range(-1.0, 1.0, length=100) |> collect
+
+ppld = postPredLogdens(Xpred, ypred, model, sims)
+
