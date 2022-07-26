@@ -178,7 +178,7 @@ function postPred(model::Model_PPMx,
 end
 
 function postPredLogdens(Xpred::Union{Matrix{T},Matrix{Union{T,Missing}}},
-    ypred::Vector{T},
+    y_grid::Vector{T},
     model::Model_PPMx,
     sims::Vector{Dict{Symbol,Any}},
     update_params::Vector{Symbol}=[:mu, :sig, :beta, :mu0, :sig0]) where {T<:Real}
@@ -187,7 +187,7 @@ function postPredLogdens(Xpred::Union{Matrix{T},Matrix{Union{T,Missing}}},
     ## treats each input as the n+1th observation with no consideration of them clustering together
     ## does not update the likelihood centering with the prediction obs, stats
 
-    n_y = length(ypred)
+    n_y = length(y_grid)
     n_pred, p_pred = size(Xpred)
     p_pred == model.p || throw("Xpred and original X have different numbers of predictors.")
 
@@ -195,8 +195,7 @@ function postPredLogdens(Xpred::Union{Matrix{T},Matrix{Union{T,Missing}}},
 
     n_sim = length(sims)
 
-    # lDenspred = Matrix{typeof(model.y[1])}(undef, n_sim, n_pred, n_y)
-    lDenspred = zeros(n_sim, n_pred, n_y)
+    lDenspred = Array{typeof(model.y[1])}(undef, n_sim, n_pred, n_y)
 
     lcohes1 = log_cohesion(Cohesion_CRP(model.state.cohesion.logα, 1, true))
     x_mean_empty, x_sd_empty = aux_moments_empty(model.state.similarity)
@@ -221,7 +220,6 @@ function postPredLogdens(Xpred::Union{Matrix{T},Matrix{Union{T,Missing}}},
             lw = predWeights(i, Xpred, lcohesions, Xstats, lsimilarities, K, S, model, lcohes1)
             lw = lw .- logsumexp(lw)
 
-            # draw y value
             mean_now = Vector{typeof(model.y[1])}(undef, K + 1)
             sig2_now = Vector{typeof(model.y[1])}(undef, K + 1)
 
@@ -263,9 +261,12 @@ function postPredLogdens(Xpred::Union{Matrix{T},Matrix{Union{T,Missing}}},
                 mean_now[K+1] += z' * lik_params_new.beta[obsXIndx_pred[i].indx_obs]
             end
 
-            for k in (K+1)
-                lDenspred[ii, i, :] .+= lw[k] .- halflog2pi .- 0.5*log(sig2_now[k]) .- (0.5.*(ypred .- mean_now[k]).^2 ./ sig2_now[k])
+            lDenspred_tmp = Matrix{typeof(model.y[1])}(undef, n_y, K+1)
+            for k in 1:(K+1)
+                lDenspred_tmp[:, k] = lw[k] .- halflog2pi .- 0.5*log(sig2_now[k]) .- (0.5 .* (y_grid .- mean_now[k]).^2 ./ sig2_now[k])
             end
+
+            lDenspred[ii, i, :] = logsumexp(lDenspred_tmp, dims=2)[:,1]
 
         end
     end
