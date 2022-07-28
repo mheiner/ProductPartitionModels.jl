@@ -534,3 +534,6 @@ ygrid = range(-1.0, 1.0, length=10) |> collect
 
 ppld = postPredLogdens(Xpred, ygrid, model, sims)
 
+ppld_is = postPredLogdens(X, y_use, model, sims, crossxy=false)
+
+

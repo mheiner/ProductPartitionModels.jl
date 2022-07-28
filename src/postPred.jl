@@ -194,8 +194,9 @@ end
 function postPredLogdens(Xpred::Union{Matrix{T},Matrix{Union{T,Missing}}},
     y_grid::Vector{T},
     model::Model_PPMx,
-    sims::Vector{Dict{Symbol,Any}},
-    update_params::Vector{Symbol}=[:mu, :sig, :beta, :mu0, :sig0]) where {T<:Real}
+    sims::Vector{Dict{Symbol,Any}};
+    update_params::Vector{Symbol}=[:mu, :sig, :beta, :mu0, :sig0],
+    crossxy::Bool=true) where {T<:Real}
 
     ## currently assumes cohesion and similarity parameters are fixed
     ## treats each input as the n+1th observation with no consideration of them clustering together
@@ -209,7 +210,12 @@ function postPredLogdens(Xpred::Union{Matrix{T},Matrix{Union{T,Missing}}},
 
     n_sim = length(sims)
 
-    lDenspred = Array{typeof(model.y[1])}(undef, n_sim, n_pred, n_y)
+    if crossxy
+        lDenspred = Array{typeof(model.y[1])}(undef, n_sim, n_pred, n_y)
+    else
+        n_y == n_pred || DomainError("If not crossing X_pred and y_grid, the number of observations must match.")
+        lDenspred = Matrix{typeof(model.y[1])}(undef, n_sim, n_pred)
+    end
 
     lcohes1 = log_cohesion(Cohesion_CRP(model.state.cohesion.logα, 1, true))
     x_mean_empty, x_sd_empty = aux_moments_empty(model.state.similarity)
@@ -283,12 +289,23 @@ function postPredLogdens(Xpred::Union{Matrix{T},Matrix{Union{T,Missing}}},
                 end
             end
 
-            lDenspred_tmp = Matrix{typeof(model.y[1])}(undef, n_y, K+1)
-            for k in 1:(K+1)
-                lDenspred_tmp[:, k] = lw[k] .- halflog2pi .- 0.5*log(sig2_now[k]) .- (0.5 .* (y_grid .- mean_now[k]).^2 ./ sig2_now[k])
-            end
+            if crossxy
+                lDenspred_tmp = Matrix{typeof(model.y[1])}(undef, n_y, K+1)
 
-            lDenspred[ii, i, :] = logsumexp(lDenspred_tmp, dims=2)[:,1]
+                for k in 1:(K+1)
+                    lDenspred_tmp[:, k] = lw[k] .- halflog2pi .- 0.5*log(sig2_now[k]) .- (0.5 .* (y_grid .- mean_now[k]).^2 ./ sig2_now[k])
+                end
+
+                lDenspred[ii, i, :] = logsumexp(lDenspred_tmp, dims=2)[:,1]
+            else
+                lDenspred_tmp = Vector{typeof(model.y[1])}(undef, K+1)
+
+                for k in 1:(K+1)
+                    lDenspred_tmp[k] = lw[k] - halflog2pi - 0.5*log(sig2_now[k]) - (0.5 * (y_grid[i] - mean_now[k])^2 / sig2_now[k])
+                end
+
+                lDenspred[ii, i] = logsumexp(lDenspred_tmp)
+            end
 
         end
     end
