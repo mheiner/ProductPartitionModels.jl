@@ -63,11 +63,13 @@ function postPred(Xpred::Union{Matrix{T},Matrix{Union{T,Missing}}},
         K = length(lcohesions)
         S = StatsBase.counts(sims[ii][:C], K)
 
-        Xbars = Matrix{typeof(model.y[1])}(undef, K, model.p)
-        Sds = Matrix{typeof(model.y[1])}(undef, K, model.p)
+        if typeof(model.state.lik_params[1]) <: LikParams_PPMxReg
+            Xbars = Matrix{typeof(model.y[1])}(undef, K, model.p)
+            Sds = Matrix{typeof(model.y[1])}(undef, K, model.p)
 
-        for k in 1:K
-            Xbars[k, :], Sds[k, :] = aux_moments_k(Xstats[k], model.state.similarity)
+            for k in 1:K
+                Xbars[k, :], Sds[k, :] = aux_moments_k(Xstats[k], model.state.similarity)
+            end
         end
 
         for i in 1:n_pred
@@ -86,37 +88,45 @@ function postPred(Xpred::Union{Matrix{T},Matrix{Union{T,Missing}}},
                 mean_now = deepcopy(sims[ii][:lik_params][C_i][:mu])
                 sig2_now = sims[ii][:lik_params][C_i][:sig]^2
 
-                if obsXIndx_pred[i].n_mis > 0
-                    sig2_now += sum(sims[ii][:lik_params][C_i][:beta][obsXIndx_pred[i].indx_mis] .^ 2)
+                if typeof(model.state.lik_params[1]) <: LikParams_PPMxReg
+                    if obsXIndx_pred[i].n_mis > 0
+                        sig2_now += sum(sims[ii][:lik_params][C_i][:beta][obsXIndx_pred[i].indx_mis] .^ 2)
+                    end
+
+                    if obsXIndx_pred[i].n_obs > 0
+                        z = (Xpred[i, obsXIndx_pred[i].indx_obs] - Xbars[C_i, obsXIndx_pred[i].indx_obs]) ./ Sds[C_i, obsXIndx_pred[i].indx_obs]
+                        mean_now += z' * sims[ii][:lik_params][C_i][:beta][obsXIndx_pred[i].indx_obs]
+                    end
                 end
 
-                if obsXIndx_pred[i].n_obs > 0
-                    z = (Xpred[i, obsXIndx_pred[i].indx_obs] - Xbars[C_i, obsXIndx_pred[i].indx_obs]) ./ Sds[C_i, obsXIndx_pred[i].indx_obs]
-                    mean_now += z' * sims[ii][:lik_params][C_i][:beta][obsXIndx_pred[i].indx_obs]
-                end
             else
-                if (:mu0 in update_params) && (:sig0 in update_params)
-                    lik_params_new = simpri_lik_params(
-                        Baseline_NormDLUnif(sims[ii][:baseline][:mu0], sims[ii][:baseline][:sig0],
-                            model.state.baseline.tau0, model.state.baseline.sig_upper),
-                        model.p, model.state.lik_params[1], update_params
-                    ) # this is a messy patch, needs attention
-                else
-                    lik_params_new = simpri_lik_params(model.state.baseline,
-                        model.p, model.state.lik_params[1], update_params
-                    )
+
+                basenow = deepcopy(model.state.baseline)
+
+                if (:mu0 in update_params)
+                    basenow.mu0 = deepcopy(sims[ii][:baseline][:mu0])
                 end
+
+                if (:sig0 in update_params)
+                    basenow.sig0 = deepcopy(sims[ii][:baseline][:sig0])
+                end
+
+                lik_params_new = simpri_lik_params(basenow,
+                        model.p, model.state.lik_params[1], update_params
+                )
 
                 mean_now = deepcopy(lik_params_new.mu)
                 sig2_now = lik_params_new.sig^2
 
-                if obsXIndx_pred[i].n_mis > 0
-                    sig2_now += sum(lik_params_new.beta[obsXIndx_pred[i].indx_mis] .^ 2)
-                end
+                if typeof(model.state.lik_params[1]) <: LikParams_PPMxReg
+                    if obsXIndx_pred[i].n_mis > 0
+                        sig2_now += sum(lik_params_new.beta[obsXIndx_pred[i].indx_mis] .^ 2)
+                    end
 
-                if obsXIndx_pred[i].n_obs > 0
-                    z = (Xpred[i, obsXIndx_pred[i].indx_obs] .- x_mean_empty) ./ x_sd_empty
-                    mean_now += z' * lik_params_new.beta[obsXIndx_pred[i].indx_obs]
+                    if obsXIndx_pred[i].n_obs > 0
+                        z = (Xpred[i, obsXIndx_pred[i].indx_obs] .- x_mean_empty) ./ x_sd_empty
+                        mean_now += z' * lik_params_new.beta[obsXIndx_pred[i].indx_obs]
+                    end
                 end
             end
 
@@ -144,13 +154,15 @@ function postPred(model::Model_PPMx,
 
         lcohesions, Xstats, lsimilarities = get_lcohlsim(sims[ii][:C], model.X, model.state.cohesion, model.state.similarity)
         K = length(lcohesions)
-        S = StatsBase.counts(sims[ii][:C], K)
+        # S = StatsBase.counts(sims[ii][:C], K)
 
-        Xbars = Matrix{typeof(model.y[1])}(undef, K, model.p)
-        Sds = Matrix{typeof(model.y[1])}(undef, K, model.p)
+        if typeof(model.state.lik_params[1]) <: LikParams_PPMxReg
+            Xbars = Matrix{typeof(model.y[1])}(undef, K, model.p)
+            Sds = Matrix{typeof(model.y[1])}(undef, K, model.p)
 
-        for k in 1:K
-            Xbars[k, :], Sds[k, :] = aux_moments_k(Xstats[k], model.state.similarity)
+            for k in 1:K
+                Xbars[k, :], Sds[k, :] = aux_moments_k(Xstats[k], model.state.similarity)
+            end
         end
 
         for i in 1:model.n
@@ -159,13 +171,15 @@ function postPred(model::Model_PPMx,
             mean_now = deepcopy(sims[ii][:lik_params][C_i][:mu])
             sig2_now = sims[ii][:lik_params][C_i][:sig]^2
 
-            if model.obsXIndx[i].n_mis > 0
-                sig2_now += sum(sims[ii][:lik_params][C_i][:beta][model.obsXIndx[i].indx_mis] .^ 2)
-            end
-
-            if model.obsXIndx[i].n_obs > 0
-                z = (model.X[i, model.obsXIndx[i].indx_obs] - Xbars[C_i, model.obsXIndx[i].indx_obs]) ./ Sds[C_i, model.obsXIndx[i].indx_obs]
-                mean_now += z' * sims[ii][:lik_params][C_i][:beta][model.obsXIndx[i].indx_obs]
+            if typeof(model.state.lik_params[1]) <: LikParams_PPMxReg
+                if model.obsXIndx[i].n_mis > 0
+                    sig2_now += sum(sims[ii][:lik_params][C_i][:beta][model.obsXIndx[i].indx_mis] .^ 2)
+                end
+            
+                if model.obsXIndx[i].n_obs > 0
+                    z = (model.X[i, model.obsXIndx[i].indx_obs] - Xbars[C_i, model.obsXIndx[i].indx_obs]) ./ Sds[C_i, model.obsXIndx[i].indx_obs]
+                    mean_now += z' * sims[ii][:lik_params][C_i][:beta][model.obsXIndx[i].indx_obs]
+                end
             end
 
             Mean_pred[ii, i] = deepcopy(mean_now)
@@ -208,11 +222,13 @@ function postPredLogdens(Xpred::Union{Matrix{T},Matrix{Union{T,Missing}}},
         K = length(lcohesions)
         S = StatsBase.counts(sims[ii][:C], K)
 
-        Xbars = Matrix{typeof(model.y[1])}(undef, K, model.p)
-        Sds = Matrix{typeof(model.y[1])}(undef, K, model.p)
+        if typeof(model.state.lik_params[1]) <: LikParams_PPMxReg
+            Xbars = Matrix{typeof(model.y[1])}(undef, K, model.p)
+            Sds = Matrix{typeof(model.y[1])}(undef, K, model.p)
 
-        for k in 1:K
-            Xbars[k, :], Sds[k, :] = aux_moments_k(Xstats[k], model.state.similarity)
+            for k in 1:K
+                Xbars[k, :], Sds[k, :] = aux_moments_k(Xstats[k], model.state.similarity)
+            end
         end
 
         for i in 1:n_pred
@@ -227,38 +243,44 @@ function postPredLogdens(Xpred::Union{Matrix{T},Matrix{Union{T,Missing}}},
                 mean_now[k] = deepcopy(sims[ii][:lik_params][k][:mu])
                 sig2_now[k] = sims[ii][:lik_params][k][:sig]^2
 
-                if obsXIndx_pred[i].n_mis > 0
-                    sig2_now[k] += sum(sims[ii][:lik_params][k][:beta][obsXIndx_pred[i].indx_mis] .^ 2)
-                end
+                if typeof(model.state.lik_params[1]) <: LikParams_PPMxReg
+                    if obsXIndx_pred[i].n_mis > 0
+                        sig2_now[k] += sum(sims[ii][:lik_params][k][:beta][obsXIndx_pred[i].indx_mis] .^ 2)
+                    end
 
-                if obsXIndx_pred[i].n_obs > 0
-                    z = (Xpred[i, obsXIndx_pred[i].indx_obs] - Xbars[k, obsXIndx_pred[i].indx_obs]) ./ Sds[k, obsXIndx_pred[i].indx_obs]
-                    mean_now[k] += z' * sims[ii][:lik_params][k][:beta][obsXIndx_pred[i].indx_obs]
+                    if obsXIndx_pred[i].n_obs > 0
+                        z = (Xpred[i, obsXIndx_pred[i].indx_obs] - Xbars[k, obsXIndx_pred[i].indx_obs]) ./ Sds[k, obsXIndx_pred[i].indx_obs]
+                        mean_now[k] += z' * sims[ii][:lik_params][k][:beta][obsXIndx_pred[i].indx_obs]
+                    end
                 end
             end
 
-            if (:mu0 in update_params) && (:sig0 in update_params)
-                lik_params_new = simpri_lik_params(
-                    Baseline_NormDLUnif(sims[ii][:baseline][:mu0], sims[ii][:baseline][:sig0],
-                        model.state.baseline.tau0, model.state.baseline.sig_upper),
-                    model.p, model.state.lik_params[1], update_params
-                ) # this is a messy patch, needs attention
-            else
-                lik_params_new = simpri_lik_params(model.state.baseline,
-                    model.p, model.state.lik_params[1], update_params
-                )
+            basenow = deepcopy(model.state.baseline)
+
+            if (:mu0 in update_params)
+                basenow.mu0 = deepcopy(sims[ii][:baseline][:mu0])
             end
+
+            if (:sig0 in update_params)
+                basenow.sig0 = deepcopy(sims[ii][:baseline][:sig0])
+            end
+
+            lik_params_new = simpri_lik_params(basenow,
+                    model.p, model.state.lik_params[1], update_params
+            )
 
             mean_now[K+1] = deepcopy(lik_params_new.mu)
             sig2_now[K+1] = lik_params_new.sig^2
 
-            if obsXIndx_pred[i].n_mis > 0
-                sig2_now[K+1] += sum(lik_params_new.beta[obsXIndx_pred[i].indx_mis] .^ 2)
-            end
+            if typeof(model.state.lik_params[1]) <: LikParams_PPMxReg
+                if obsXIndx_pred[i].n_mis > 0
+                    sig2_now[K+1] += sum(lik_params_new.beta[obsXIndx_pred[i].indx_mis] .^ 2)
+                end
 
-            if obsXIndx_pred[i].n_obs > 0
-                z = (Xpred[i, obsXIndx_pred[i].indx_obs] .- x_mean_empty) ./ x_sd_empty
-                mean_now[K+1] += z' * lik_params_new.beta[obsXIndx_pred[i].indx_obs]
+                if obsXIndx_pred[i].n_obs > 0
+                    z = (Xpred[i, obsXIndx_pred[i].indx_obs] .- x_mean_empty) ./ x_sd_empty
+                    mean_now[K+1] += z' * lik_params_new.beta[obsXIndx_pred[i].indx_obs]
+                end
             end
 
             lDenspred_tmp = Matrix{typeof(model.y[1])}(undef, n_y, K+1)

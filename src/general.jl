@@ -1,7 +1,9 @@
 # general.jl
 
 export ObsXIndx, State_PPMx, get_lcohlsim, init_PPMx, refresh!,
-Prior_cohesion, Prior_similarity, Prior_baseline, Prior_baseline_NormDLUnif, Prior_PPMx, init_PPMx_prior,
+Prior_cohesion, Prior_similarity, 
+Prior_baseline, Prior_baseline_NormDLUnif, Prior_baseline_NormUnif, 
+Prior_PPMx, init_PPMx_prior,
 Model_PPMx;
 
 struct ObsXIndx
@@ -60,6 +62,7 @@ end
 function init_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     C_init::Union{Int, Vector{Int}}=0;
     similarity_type::Symbol=:NN,
+    sampling_model::Symbol=:Reg,
     lik_rand::Bool=true) where T <: Real
 
     n, p = size(X)
@@ -76,22 +79,40 @@ function init_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     K = maximum(C)
     S = StatsBase.counts(C, K)
 
-    baseline = Baseline_NormDLUnif(0.0, 5.0, 1.0, 10.0)
+    if sampling_model == :Reg
+        baseline = Baseline_NormDLUnif(0.0, 5.0, 1.0, 10.0)
 
-    if lik_rand
-        lik_params = [ LikParams_PPMxReg(randn(), # mu
-                                rand(Uniform(baseline.sig_lower, baseline.sig_upper)), # sig
-                                randn(p), # beta
-                                Hypers_DirLap(rand(Dirichlet(p, 1.0)), rand(Exponential(0.5), p), rand(Exponential(0.5*baseline.tau0))) # beta hypers
-                                )
-                        for k in 1:K ]
-    else
-        lik_params = [ LikParams_PPMxReg(0.0, # mu
-                                0.1 * baseline.sig_upper, # sig
-                                zeros(p), # beta
-                                Hypers_DirLap(fill(1.0/p, p), fill(0.5, p), 0.5*baseline.tau0) # beta hypers
-                                )
-                        for k in 1:K ]
+        if lik_rand
+            lik_params = [ LikParams_PPMxReg(randn(), # mu
+                                    rand(Uniform(baseline.sig_lower, baseline.sig_upper)), # sig
+                                    randn(p), # beta
+                                    Hypers_DirLap(rand(Dirichlet(p, 1.0)), rand(Exponential(0.5), p), rand(Exponential(0.5*baseline.tau0))) # beta hypers
+                                    )
+                            for k in 1:K ]
+        else
+            lik_params = [ LikParams_PPMxReg(0.0, # mu
+                                    0.1 * baseline.sig_upper, # sig
+                                    zeros(p), # beta
+                                    Hypers_DirLap(fill(1.0/p, p), fill(0.5, p), 0.5*baseline.tau0) # beta hypers
+                                    )
+                            for k in 1:K ]
+        end
+    
+    elseif sampling_model == :Mean
+        baseline = Baseline_NormUnif(0.0, 5.0, 10.0)
+
+        if lik_rand
+            lik_params = [ LikParams_PPMxMean(randn(), # mu
+                                    rand(Uniform(baseline.sig_lower, baseline.sig_upper)) # sig
+                                    )
+                            for k in 1:K ]
+        else
+            lik_params = [ LikParams_PPMxMean(0.0, # mu
+                                    0.1 * baseline.sig_upper # sig
+                                    )
+                            for k in 1:K ]
+        end
+
     end
 
     cohesion = Cohesion_CRP(1.0, 0)
@@ -118,7 +139,12 @@ function refresh!(state::State_PPMx, y::Vector{T}, X::Union{Matrix{T}, Matrix{Un
     lcohes_upd, Xstats_upd, lsimil_upd = get_lcohlsim(state.C, X, state.cohesion, state.similarity)
 
     if refresh_llik
-        llik = llik_all(y, X, state.C, obsXIndx, state.lik_params, Xstats_upd, state.similarity)[1]
+        
+        if typeof(state.lik_params[1]) <: LikParams_PPMxReg
+            llik = llik_all(y, X, state.C, obsXIndx, state.lik_params, Xstats_upd, state.similarity)[:llik]
+        elseif typeof(state.lik_params[1]) <: LikParams_PPMxMean
+            llik = llik_all(y, state.C, state.lik_params)[:llik]
+        end
         state.llik = llik # depends on C, lik_params
     end
 
@@ -147,14 +173,27 @@ mutable struct Prior_baseline_NormDLUnif{TR <: Real} <: Prior_baseline
     sig0_upper::TR
 end
 
+mutable struct Prior_baseline_NormUnif{TR <: Real} <: Prior_baseline
+    mu0_mean::TR
+    mu0_sd::TR
+    sig0_upper::TR
+end
+
 mutable struct Prior_PPMx
     cohesion::Union{Nothing, Prior_cohesion}
     similarity::Union{Nothing, Prior_similarity}
     baseline::Union{Nothing, Prior_baseline}
 end
 
-function init_PPMx_prior()
-    return Prior_PPMx(nothing, nothing, Prior_baseline_NormDLUnif(0.0, 100.0, 10.0))
+function init_PPMx_prior(sampling_model::Symbol=:Reg)
+
+    if sampling_model == :Reg
+        bs = Prior_baseline_NormDLUnif(0.0, 100.0, 10.0)
+    elseif sampling_model == :Mean
+        bs = Prior_baseline_NormUnif(0.0, 100.0, 10.0)
+    end
+
+    return Prior_PPMx(nothing, nothing, bs)
 end
 
 ## testing unexpected behavior
@@ -183,14 +222,19 @@ end
 function Model_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     C_init::Union{Int, Vector{Int}}=0;
     similarity_type::Symbol=:NN,
+    sampling_model::Symbol=:Reg, # one of :Reg or :Mean
     init_lik_rand::Bool=true) where T <: Real
 
     n, p = size(X)
     n == length(y) || error("PPMx model initialization: X, y dimension mismatch.")
     obsXIndx = [ ObsXIndx(X[i,:]) for i in 1:n ]
 
-    prior = init_PPMx_prior()
-    state = init_PPMx(y, X, deepcopy(C_init), similarity_type=similarity_type, lik_rand=init_lik_rand)
+    prior = init_PPMx_prior(sampling_model)
+    state = init_PPMx(y, X, deepcopy(C_init), 
+        similarity_type=similarity_type, 
+        sampling_model=sampling_model,
+        lik_rand=init_lik_rand
+        )
 
     state.baseline.sig0 < prior.baseline.sig0_upper || error("sig0 in the baseline must be initialized below its prior upper bound.")
 

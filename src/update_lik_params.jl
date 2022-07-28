@@ -9,7 +9,7 @@ struct TargetArgs_EsliceBetas{T <: Real, TT <: LikParams_PPMxReg, TTT <: Similar
     similarity::TTTT
 end
 
-struct TargetArgs_sliceSig{T <: Real} <: TargetArgs
+struct TargetArgs_sliceSig_Reg{T <: Real} <: TargetArgs
     y_k::Vector{T}
     means::Vector{T}
     vars::Vector{T}
@@ -22,18 +22,24 @@ struct TargetArgs_sliceSig{T <: Real} <: TargetArgs
     psi::Vector{T}
 end
 
+struct TargetArgs_sliceSig_noReg{T <: Real} <: TargetArgs
+    y_k::Vector{T}
+    lik_params_k::LikParams_PPMxMean
+end
+
 function llik_k_forEsliceBeta(beta_cand::Vector{T}, args::TargetArgs_EsliceBetas) where T <: Real
 
     lik_params_cand = deepcopy(args.lik_params_k)
     lik_params_cand.beta = beta_cand
 
     return llik_k(args.y_k, args.X_k, args.ObsXIndx_k, lik_params_cand,
-                  args.Xstats_k, args.similarity)[1:3]
+                  args.Xstats_k, args.similarity)
 end
 
-function llik_k_forSliceSig(sig_cand::Real, args::TargetArgs_sliceSig)
-
-    llik_kk, means, vars = llik_k(args.y_k, args.means, args.vars, args.sig_old, sig_cand)[1:3]
+function llik_k_forSliceSig_Reg(sig_cand::Real, args::TargetArgs_sliceSig_Reg)
+    
+    llik_k_tmp = llik_k(args.y_k, args.means, args.vars, args.sig_old, sig_cand)
+    llik_kk = llik_k_tmp[:llik]
 
     prior_var_beta = args.tau^2 .* sig_cand^2 .*
         args.tau0^2 .* args.phi.^2 .* args.psi
@@ -46,7 +52,15 @@ function llik_k_forSliceSig(sig_cand::Real, args::TargetArgs_sliceSig)
 
     llik_kk += lpri_beta
 
-    return llik_kk, means, vars
+    return Dict(:llik => llik_kk, :means => llik_k_tmp[:means], :vars => llik_k_tmp[:vars])
+end
+
+function llik_k_forSliceSig_noReg(sig_cand::Real, args::TargetArgs_sliceSig_noReg)
+
+    lik_params_k_cand = deepcopy(args.lik_params_k)
+    lik_params_k_cand.sig = sig_cand
+    
+    return llik_k(args.y_k, lik_params_k_cand)
 end
 
 function update_lik_params!(model::Model_PPMx,
@@ -60,60 +74,78 @@ function update_lik_params!(model::Model_PPMx,
 
         indx_k = findall(model.state.C.==k)
 
-        if (:beta in update)
-            ## update betas, produces vectors of obs-specific means and variances
-            prior_var_beta = model.state.lik_params[k].beta_hypers.tau^2 .* model.state.lik_params[k].sig^2 .*
-                model.state.baseline.tau0^2 .*
-                model.state.lik_params[k].beta_hypers.phi.^2 .*
-                model.state.lik_params[k].beta_hypers.psi
+        if typeof(model.state.lik_params[k]) <: LikParams_PPMxReg
+            if ( :beta in update )
+                ## update betas, produces vectors of obs-specific means and variances
+                prior_var_beta = model.state.lik_params[k].beta_hypers.tau^2 .* model.state.lik_params[k].sig^2 .*
+                    model.state.baseline.tau0^2 .*
+                    model.state.lik_params[k].beta_hypers.phi.^2 .*
+                    model.state.lik_params[k].beta_hypers.psi
 
-            model.state.lik_params[k].beta, beta_upd_stats, iters_eslice = ellipSlice(
-                model.state.lik_params[k].beta,
-                prior_mean_beta, prior_var_beta,
-                llik_k_forEsliceBeta,
-                TargetArgs_EsliceBetas(model.y[indx_k], model.X[indx_k,:], model.obsXIndx[indx_k],
-                    model.state.lik_params[k], model.state.Xstats[k], model.state.similarity),
-                    sliceiter
+                model.state.lik_params[k].beta, beta_upd_stats, iters_eslice = ellipSlice(
+                    model.state.lik_params[k].beta,
+                    prior_mean_beta, prior_var_beta,
+                    llik_k_forEsliceBeta,
+                    TargetArgs_EsliceBetas(model.y[indx_k], model.X[indx_k,:], model.obsXIndx[indx_k],
+                        model.state.lik_params[k], model.state.Xstats[k], model.state.similarity),
+                        sliceiter
+                    )
+
+                ## update beta hypers (could customize a function here to accommodate different shrinkage priors)
+                model.state.lik_params[k].beta_hypers.psi = update_ψ(model.state.lik_params[k].beta_hypers.phi,
+                    model.state.lik_params[k].beta ./ model.state.baseline.tau0 ./ model.state.lik_params[k].sig,
+                    model.state.lik_params[k].beta_hypers.tau
                 )
 
-            ## update beta hypers (could customize a function here to accommodate different shrinkage priors)
-            model.state.lik_params[k].beta_hypers.psi = update_ψ(model.state.lik_params[k].beta_hypers.phi,
-                model.state.lik_params[k].beta ./ model.state.baseline.tau0 ./ model.state.lik_params[k].sig,
-                model.state.lik_params[k].beta_hypers.tau
-            )
+                model.state.lik_params[k].beta_hypers.tau = update_τ(model.state.lik_params[k].beta_hypers.phi,
+                    model.state.lik_params[k].beta ./ model.state.baseline.tau0 ./ model.state.lik_params[k].sig,
+                    1.0/model.p
+                )
 
-            model.state.lik_params[k].beta_hypers.tau = update_τ(model.state.lik_params[k].beta_hypers.phi,
-                model.state.lik_params[k].beta ./ model.state.baseline.tau0 ./ model.state.lik_params[k].sig,
-                1.0/model.p
-            )
+                model.state.lik_params[k].beta_hypers.phi = update_ϕ(model.state.lik_params[k].beta ./ model.state.baseline.tau0 ./ model.state.lik_params[k].sig,
+                    1.0/model.p
+                )
+            else
+                beta_upd_stats = llik_k(model.y[indx_k], model.X[indx_k,:], model.obsXIndx[indx_k],
+                    model.state.lik_params[k], model.state.Xstats[k], model.state.similarity)
+            end
 
-            model.state.lik_params[k].beta_hypers.phi = update_ϕ(model.state.lik_params[k].beta ./ model.state.baseline.tau0 ./ model.state.lik_params[k].sig,
-                1.0/model.p
-            )
-        else
-            beta_upd_stats = llik_k(model.y[indx_k], model.X[indx_k,:], model.obsXIndx[indx_k],
-                model.state.lik_params[k], model.state.Xstats[k], model.state.similarity)[1:3]
+            ## update sig, which preserves means to be modified in the update for means
+            if (:sig in update)
+                model.state.lik_params[k].sig, sig_upd_stats, iters_sslice = shrinkSlice(model.state.lik_params[k].sig,
+                    model.state.baseline.sig_lower, model.state.baseline.sig_upper,
+                    llik_k_forSliceSig_Reg,
+                    TargetArgs_sliceSig_Reg(model.y[indx_k], beta_upd_stats[:means], beta_upd_stats[:vars], model.state.lik_params[k].sig,
+                                        model.state.lik_params[k].beta, model.state.baseline.tau0, model.state.lik_params[k].beta_hypers.tau,
+                                        model.state.lik_params[k].beta_hypers.phi, model.state.lik_params[k].beta_hypers.psi),
+                    sliceiter
+                    ) # sig_old doesn't need to be updated during intermediate proposals of slice sampler--vars isn't updated either,
+                    # so each step evaluates against the same (original) set of target args. This allows us to use the generic slice sampler code.
+            else
+                sig_upd_stats = deepcopy(beta_upd_stats) # means (indx 2) and vars (indx 3) that get used haven't changed
+            end
+        
+        elseif typeof(model.state.lik_params[k]) <: LikParams_PPMxMean
+            if (:sig in update)
+                model.state.lik_params[k].sig, sig_upd_stats, iters_sslice = shrinkSlice(model.state.lik_params[k].sig,
+                    model.state.baseline.sig_lower, model.state.baseline.sig_upper,
+                    llik_k_forSliceSig_noReg,
+                    TargetArgs_sliceSig_noReg(model.y[indx_k], model.state.lik_params[k]),
+                    sliceiter
+                    ) # sig_old doesn't need to be updated during intermediate proposals of slice sampler--vars isn't updated either,
+                    # so each step evaluates against the same (original) set of target args. This allows us to use the generic slice sampler code.
+                    # I don't think this is an issue with PPMxMean either.
+            end
+            
+            ## always caluclate this because sig_upd_stats doesn't output running means, vars with LikParams_PPMxMean
+            sig_upd_stats = Dict(:means => fill(model.state.lik_params[k].mu, length(indx_k)), 
+                                 :vars => fill(model.state.lik_params[k].sig^2, length(indx_k)))
         end
 
-        ## update sig, which preserves means to be modified in the update for means
-        if (:sig in update)
-            model.state.lik_params[k].sig, sig_upd_stats, iters_sslice = shrinkSlice(model.state.lik_params[k].sig,
-                model.state.baseline.sig_lower, model.state.baseline.sig_upper,
-                llik_k_forSliceSig,
-                TargetArgs_sliceSig(model.y[indx_k], beta_upd_stats[2], beta_upd_stats[3], model.state.lik_params[k].sig,
-                                    model.state.lik_params[k].beta, model.state.baseline.tau0, model.state.lik_params[k].beta_hypers.tau,
-                                    model.state.lik_params[k].beta_hypers.phi, model.state.lik_params[k].beta_hypers.psi),
-                sliceiter
-            ) # sig_old doesn't need to be updated during intermediate proposals of slice sampler--vars isn't updated either,
-              # so each step uses the same (original) set of target args. This allows us to use the generic slice sampler code.
-        else
-            sig_upd_stats = deepcopy(beta_upd_stats) # means (indx 2) and vars (indx 3) that get used haven't changed
-        end
-
-        ## update mu
+        ## update mu (generic)
         if (:mu in update)
-            yy = model.y[indx_k] - sig_upd_stats[2] .+ model.state.lik_params[k].mu
-            one_div_var = 1.0 ./ sig_upd_stats[3]
+            yy = model.y[indx_k] - sig_upd_stats[:means] .+ model.state.lik_params[k].mu
+            one_div_var = 1.0 ./ sig_upd_stats[:vars]
             yy_div_var = yy .* one_div_var
             v1 = 1.0 / (1.0/model.state.baseline.sig0^2 + sum(one_div_var))
             m1 = v1 * (model.state.baseline.mu0 / model.state.baseline.sig0^2 + sum(yy_div_var))

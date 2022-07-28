@@ -111,6 +111,30 @@ function simpri_lik_params(basemeasure::Baseline_NormDLUnif, p::Int, lik_params_
 
     return LikParams_PPMxReg(μ, σ, β, Hypers_DirLap(ϕ, ψ, τ))
 end
+function simpri_lik_params(basemeasure::Baseline_NormUnif, p::Int=0) # default of 0 never used, in place to simplify code that calls this function
+
+    μ = randn() .* basemeasure.sig0 .+ basemeasure.mu0
+    σ = rand(Uniform(basemeasure.sig_lower, basemeasure.sig_upper))
+
+    return LikParams_PPMxMean(μ, σ)
+end
+function simpri_lik_params(basemeasure::Baseline_NormUnif, p::Int, lik_params_template::LikParams_PPMx, whichsim::Vector{Symbol})
+
+    if (:mu in whichsim)
+        μ = randn() .* basemeasure.sig0 .+ basemeasure.mu0
+    else
+        μ = deepcopy(lik_params_template.mu)
+    end
+
+    if (:sig in whichsim)
+        σ = rand(Uniform(basemeasure.sig_lower, basemeasure.sig_upper))
+    else
+        σ = deepcopy(lik_params_template.sig)
+    end
+
+    return LikParams_PPMxMean(μ, σ)
+end
+
 
 function sim_lik(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} where T <: Real,
     similarity::TT where TT <: Similarity_PPMx,
@@ -153,7 +177,7 @@ function sim_lik(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} 
 
     end
 
-    return y, μ, β, σ
+    return Dict(:y => y, :mu => μ, :beta => β, :sigma => σ)
 end
 function sim_lik(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} where T <: Real,
     similarity::TT where TT <: Similarity_PPMx,
@@ -165,7 +189,38 @@ function sim_lik(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} 
 
     lik_params = [ simpri_lik_params(basemeasure, p) for k in 1:K ]
 
-    y, μ, β, σ = sim_lik(C, X, similarity, Xstats, lik_params)
+    DD = sim_lik(C, X, similarity, Xstats, lik_params)
 
-    return y, μ, β, σ
+    return DD
+end
+function sim_lik(C::Vector{Int}, lik_params::Vector{TTTT} where TTTT <: LikParams_PPMxMean)
+
+    n = length(C)
+    K = maximum(C)
+    S = StatsBase.counts(C, K)
+
+    μ = [ lik_params[k].mu for k in 1:K ]
+    σ = [ lik_params[k].sig for k in 1:K ]
+
+    y = Vector{Float64}(undef, n)
+
+    for k in 1:K
+
+        C_indx_now = findall(C.==k)
+
+        y[C_indx_now] = randn(S[k]) .* σ[k] .+ μ[k]
+
+    end
+
+    return Dict(:y => y, :mu => μ, :sigma => σ)
+end
+function sim_lik(C::Vector{Int}, basemeasure::Baseline_measure)
+
+    K = maximum(C)
+
+    lik_params = [ simpri_lik_params(basemeasure) for k in 1:K ]
+
+    DD = sim_lik(C, lik_params)
+
+    return DD
 end

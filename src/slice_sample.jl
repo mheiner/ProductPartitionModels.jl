@@ -51,7 +51,7 @@ function ellipSlice(x::Vector{T}, mu::Vector{T}, sig2::Vector{T},
     u = rand()
 
     lt = logtarget(x, logtarget_args)
-    lz = lt[1] + log(u)
+    lz = lt[:llik] + log(u)
     theta = 2π * rand()
 
     theta_min = theta - 2π
@@ -61,7 +61,7 @@ function ellipSlice(x::Vector{T}, mu::Vector{T}, sig2::Vector{T},
     lt_cand = logtarget(x_cand, logtarget_args)
     iter = 1
 
-    while lt_cand[1] <= lz && iter <= maxiter
+    while lt_cand[:llik] <= lz && iter <= maxiter
         if theta < 0
             theta_min = theta
         else
@@ -86,7 +86,7 @@ function shrinkSlice(x::Real, L::Real, R::Real,
     ((x > L) && (x < R)) || throw("Slice sampler input value outside of support.")
 
     lt = logtarget(x, logtarget_args)
-    lz = lt[1] + log(rand())
+    lz = lt[:llik] + log(rand())
 
     Lnew = L
     Rnew = R
@@ -95,7 +95,7 @@ function shrinkSlice(x::Real, L::Real, R::Real,
     lt_cand = logtarget(x_cand, logtarget_args)
     iter = 1
 
-    while lt_cand[1] <= lz && iter <= maxiter
+    while lt_cand[:llik] <= lz && iter <= maxiter
         if x_cand < x
             Lnew = x_cand
         else

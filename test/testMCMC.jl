@@ -11,6 +11,8 @@ using ProductPartitionModels
 using StatsBase
 using Random
 
+using BenchmarkTools
+
 using RCall
 R"load('~/Documents/research/PPMx_missing/data/MSPE_ncov_10_missType_MAR_perMiss_0_dataType_1_data_1.RData')"
 R"load('~/research/PPMx_missing/data/MSPE_ncov_10_missType_MAR_perMiss_0.1_dataType_1_data_1.RData')"
@@ -88,10 +90,11 @@ cohesion = Cohesion_CRP(logα, 0, true)
 # similarity = Similarity_NNiG_indep(0.0, 0.1, 1.0, 1.0)
 # similarity = Similarity_NNiG_indep(0.0, 0.1, 4.0, 4.0)
 # similarity = Similarity_NNiG_indep(0.0, 2.0, 4.0, 0.2)
-similarity = Similarity_NNiChisq_indep(0.0, 0.5, 8.0, 0.5^2) # m0, sc_prec0, nu0, s20
+# similarity = Similarity_NNiChisq_indep(0.0, 0.1, 4.0, 0.25^2) # m0, sc_prec0, nu0, s20
+similarity = Similarity_NNiChisq_indep(0.0, 0.1, 4.0, 0.5^2) # m0, sc_prec0, nu0, s20
 
 # similarity = Similarity_NN(sqrt(0.5), 0.0, 1.0)
-similarity = Similarity_NN(1.0, 0.0, 1.0)
+# similarity = Similarity_NN(1.0, 0.0, 1.0)
 
 C = deepcopy(Ctrue)
 # C, K, S, lcohes, Xstat, lsimilar = sim_partition_PPMx(logα, X, similarity)
@@ -99,20 +102,34 @@ C = deepcopy(Ctrue)
 # K
 # S
 
-C = [1,2,3]
+# C = [1,2,3]
 
 K = maximum(C)
 lcohes, Xstat, lsimilar = get_lcohlsim(C, X, cohesion, similarity)
-sum(lcohes + vcat(lsimilar...))
+# sum(lcohes + vcat(lsimilar...))
 
 ## G0; controls only y|x
 μ0 = 0.0
 σ0 = 5.0
 τ0 = 1.0 # scale of DL shrinkage
 σ_upper = 10.0
-G0 = Baseline_NormDLUnif(μ0, σ0, τ0, σ_upper)
 
-y, μ, β, σ = sim_lik(C, X, similarity, Xstat, G0)
+sampling_model = :Reg # running this with betas all fixed at 0 should give same answer as :Mean
+sampling_model = :Mean
+
+if sampling_model == :Mean
+    G0 = Baseline_NormUnif(μ0, σ0, σ_upper)
+    DD_sim = sim_lik(C, G0)
+elseif sampling_model == :Reg
+    G0 = Baseline_NormDLUnif(μ0, σ0, τ0, σ_upper)
+    DD_sim = sim_lik(C, X, similarity, Xstat, G0)
+end
+
+
+y = deepcopy(DD_sim[:y])
+μ = deepcopy(DD_sim[:mu])
+β = deepcopy(DD_sim[:beta])
+σ = deepcopy(DD_sim[:sigma])
 
 y_use = deepcopy(y)
 # y
@@ -121,8 +138,10 @@ y_use = deepcopy(y)
 σ
 
 # model = Model_PPMx(y, X, C)
-model = Model_PPMx(y_use, X, 0, similarity_type=:NN, init_lik_rand=false) # C_init = 0 --> n clusters ; 1 --> 1 cluster
-model = Model_PPMx(y_use, X, 0, similarity_type=:NNiChisq_indep, init_lik_rand=false) # C_init = 0 --> n clusters ; 1 --> 1 cluster
+# model = Model_PPMx(y_use, X, 0, similarity_type=:NN, sampling_model=sampling_model, init_lik_rand=false) # C_init = 0 --> n clusters ; 1 --> 1 cluster
+model = Model_PPMx(y_use, X, 0, 
+                   similarity_type=:NNiChisq_indep, sampling_model=sampling_model, 
+                   init_lik_rand=false) # C_init = 0 --> n clusters ; 1 --> 1 cluster
 fieldnames(typeof(model))
 fieldnames(typeof(model.state))
 model.state.C
@@ -148,32 +167,53 @@ model.state.baseline.tau0 = 0.1
 using Dates
 timestart = Dates.now()
 
-# @profview mcmc!(model, 1000,
-mcmc!(model, 1000,
+# @benchmark mcmc!(model, 50,
+# @profview mcmc!(model, 50,
+mcmc!(model, 5000,
     save=false,
     thin=1,
     n_procs=1,
     report_filename="",
     report_freq=100,
-    # update=[:C, :mu, :sig, :mu0, :sig0]
+    update=[:C, :mu, :sig, :mu0, :sig0]
     # update=[:C, :mu]
-    update=[:C, :mu, :sig, :beta, :mu0, :sig0]
+    # update=[:C, :mu, :sig, :beta, :mu0, :sig0]
 )
 
 etr(timestart; n_iter_timed=1000, n_keep=1000, thin=1, outfilename="")
 
-sims = mcmc!(model, 10000,
+sims = mcmc!(model, 1000,
     save=true,
-    thin=1,
+    thin=10,
     n_procs=1,
     report_filename="",
     report_freq=100,
-    # update=[:C, :mu, :sig, :mu0, :sig0],
-    update=[:C, :mu, :sig, :beta, :mu0, :sig0],
+    update=[:C, :mu, :sig, :mu0, :sig0],
+    # update=[:C, :mu, :sig, :beta, :mu0, :sig0],
     # update=[:C, :mu],
     # monitor=[:C],
     monitor=[:C, :mu, :sig, :beta, :mu0, :sig0, :llik_mat]
 )
+
+R"library('ppmSuite')"
+ppmSuite = R"gaussian_ppmx"
+@benchmark 
+ppms = ppmSuite(y=y_use, X=X, meanModel=1, cohesion=1, M=α,
+                      similarity_function=1,
+                      consim=2, calibrate=0, 
+                      simParms=[similarity.m0, similarity.s20, 1.0, similarity.sc_prec0, similarity.nu0, 1.0, 1.0],
+                      modelPriors = [model.prior.baseline.mu0_mean, 
+                        model.prior.baseline.mu0_sd^2, 
+                        σ_upper, 
+                        model.prior.baseline.sig0_upper], 
+                      draws=15000, burn=5000, thin=10,
+                      verbose=false
+)
+[:mu][1,1]
+
+like_ppms = [ ppms[:like][i,j] for i in 1:1000, j in 1:100 ]
+llike_ppms = sum(log.(like_ppms), dims=2)[:,1]
+Plots.plot(llike_ppms)
 
 sims0 = deepcopy(sims)
 sims == sims0
@@ -191,9 +231,9 @@ C_mat = permutedims( hcat( [ sims[ii][:C] for ii in 1:length(sims) ]...) )
 sims_S = permutedims( hcat( [ counts(sims[ii][:C], Kmax) for ii in 1:length(sims) ]...) )
 sims_Sord = permutedims( hcat( [ sort(counts(sims[ii][:C], maximum(sims_K)), rev=true) for ii in 1:length(sims) ]...) )
 
+using Plotly
 using Plots
-Plots.PlotlyBackend()
-
+# Plots.PlotlyBackend() # don't use unless you have to--tends to crash
 
 Plots.plot(sims_llik_mat[:,1])
 Plots.plot(sims_llik_mat[:,10])
@@ -223,7 +263,7 @@ sims_mu_mat = [ sims[ii][:lik_params][sims[ii][:C][i]][:mu] for ii in 1:length(s
 sims_mu = [ sims[ii][:lik_params][kk][:mu] for ii in 1:length(sims), kk in 1:Kuse ]
 μ
 Plots.plot(sims_mu)
-plot(sims_mu[:,1])
+Plots.plot(sims_mu[:,2])
 
 sims_sig = [ sims[ii][:lik_params][kk][:sig] for ii in 1:length(sims), kk in 1:Kuse ]
 σ
@@ -243,14 +283,14 @@ plot(reshape(sims_beta[:,3,2], (length(sims))))
 
 sims_mu0 = [ sims[ii][:baseline][:mu0] for ii in 1:length(sims) ]
 model.state.baseline.mu0
-plot(sims_mu0)
+Plots.plot(sims_mu0)
 model.prior.baseline.mu0_mean
 model.prior.baseline.mu0_sd
 μ0
 
 sims_sig0 = [ sims[ii][:baseline][:sig0] for ii in 1:length(sims) ]
 model.state.baseline.sig0
-plot(sims_sig0)
+Plots.plot(sims_sig0)
 model.prior.baseline.sig0_upper
 σ0
 
@@ -408,10 +448,10 @@ Plotly.plot([trace4_flat], Layout(height=500, width=500, scene_aspectratio=attr(
 
 ## in sample
 
-Ypred_is = postPred(model, sims)
+Ypred_is = postPred(model, sims)[1]
 using RCall
 @rput Ypred_is y
-R"hist(Ypred_is[,90], breaks=20); abline(v=y[90], col='blue')"
+R"hist(Ypred_is[,20], breaks=20); abline(v=y[90], col='blue')"
 R"intv = apply(Ypred_is, 2, quantile, c(0.05, 0.95))"
 R"cover = y < intv[2,] & y > intv[1,]"
 R"mean(cover)"
@@ -444,7 +484,7 @@ using RCall
 StatsBase.counts(Cpred[:,1], 0:10)
 R"hist(Ypred[,1], breaks=20)"
 
-R"  xseq = seq(from=-2.0, to=3.0, length=50)
+R"  xseq = seq(from=-2.0, to=3.0, length=20)
     Xsurf = as.matrix(expand.grid(xseq, xseq)) # fit a surface
 "
 @rget xseq Xsurf
@@ -452,12 +492,12 @@ R"  xseq = seq(from=-2.0, to=3.0, length=50)
 Ysurf, Csurf, Msurf = postPred(Xsurf, model, sims)
 sims == sims0
 Ysurf_mean = mean(Ysurf, dims=1)[1,:]
-Ysurf_mean = mean(Ysurf, dims=1)[1,:] * y_sd .+ y_mean
+# Ysurf_mean = mean(Ysurf, dims=1)[1,:] * y_sd .+ y_mean
 
 using Plotly
 
 Ysurf_mean_mat = Matrix(reshape(Ysurf_mean, fill(length(xseq),2)...))
-trace1 = surface(Dict(
+trace1 = Plotly.surface(Dict(
   :x => xseq,
   :y => xseq,
   :z => Ysurf_mean_mat,
@@ -490,7 +530,7 @@ Xpred = 0.0 .* X
 Xpred[:,2] += randn(size(Xpred,1))
 Xpred
 
-ypred = range(-1.0, 1.0, length=100) |> collect
+ygrid = range(-1.0, 1.0, length=10) |> collect
 
-ppld = postPredLogdens(Xpred, ypred, model, sims)
+ppld = postPredLogdens(Xpred, ygrid, model, sims)
 

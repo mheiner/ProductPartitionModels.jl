@@ -144,8 +144,7 @@ function mcmc!(model::Model_PPMx, n_keep::Int;
             model.state.iter += 1
             if model.state.iter % report_freq == 0
                 write(report_file, "Iter $(model.state.iter) at $(Dates.now())\n")
-                model.state.llik = llik_all(model.y, model.X, model.state.C, model.obsXIndx,
-                    model.state.lik_params, model.state.Xstats, model.state.similarity)[1]
+                model.state.llik = llik_all(model)[:llik]
                 write(report_file, "Log-likelihood $(model.state.llik)\n")
             end
 
@@ -162,18 +161,17 @@ function mcmc!(model::Model_PPMx, n_keep::Int;
                 sims[i][:baseline] = deepcopyFields(model.state.baseline, monitor_base)
             end
             if :llik_mat in monitor
-                sims[i][:llik], sims[i][:llik_mat] = llik_all(model.y, model.X, model.state.C, model.obsXIndx,
-                    model.state.lik_params, model.state.Xstats, model.state.similarity)
+                llik_tmp = llik_all(model)
+                sims[i][:llik] = deepcopy(llik_tmp[:llik])
+                sims[i][:llik_mat] = deepcopy(llik_tmp[:llik_vec])    
             else
-                sims[i][:llik] = llik_all(model.y, model.X, model.state.C, model.obsXIndx,
-                    model.state.lik_params, model.state.Xstats, model.state.similarity)[1]
+                sims[i][:llik] = llik_all(model)[:llik]
             end
         end
 
     end
 
-    model.state.llik = llik_all(model.y, model.X, model.state.C, model.obsXIndx,
-                    model.state.lik_params, model.state.Xstats, model.state.similarity)[1]
+    model.state.llik = llik_all(model)[:llik]
 
     if externalfile
         close(report_file)

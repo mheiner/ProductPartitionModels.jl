@@ -166,7 +166,7 @@ function llik_k(y_k::Vector{T}, X_k::Union{Matrix{T}, Matrix{Union{T, Missing}}}
 
     end
 
-    return sum(llik_out), means, vars, llik_out
+    return Dict(:llik => sum(llik_out), :means => means, :vars => vars, :llik_vec => llik_out)
 end
 function llik_k(y_k::Vector{T}, means::Vector{T}, vars::Vector{T}, sig_old::T, sig_new::T) where T <: Real
     n_k = length(y_k)
@@ -177,7 +177,24 @@ function llik_k(y_k::Vector{T}, means::Vector{T}, vars::Vector{T}, sig_old::T, s
         vars_out[iii] += sig_new^2
         @inbounds llik_out[iii] = -0.5*log(2π) - 0.5*log(vars_out[iii]) - 0.5*(y_k[iii] - means[iii])^2/vars_out[iii]
     end
-    sum(llik_out), means, vars_out, llik_out
+    Dict(:llik => sum(llik_out), :means => means, :vars => vars_out, :llik_vec => llik_out)
+end
+function llik_k(y_k::Vector{T}, lik_params_k::TT where TT <: LikParams_PPMxMean) where T <: Real
+
+    n_k = length(y_k)
+    n_k > 0 || throw("Likelihood calculation must include at least one observation.")
+
+    v = lik_params_k.sig^2
+    halflogv = 0.5*log(v)
+    halflog2pi = 0.5*log(2π)
+
+    llik_out = fill( -halflog2pi - halflogv, n_k )
+
+    for iii in 1:n_k
+        @inbounds llik_out[iii] -= 0.5*(y_k[iii] - lik_params_k.mu)^2 / v
+    end
+
+    return Dict(:llik => sum(llik_out), :llik_vec => llik_out)
 end
 
 function llik_all(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
@@ -186,17 +203,41 @@ function llik_all(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     Xstats::Vector{Vector{TTT}} where TTT <: Similarity_PPMxStats,
     similarity::TTTT where TTTT <: Similarity_PPMx) where T <: Real
 
-    # n, p = size(X)
     K = maximum(C)
-    # S = StatsBase.counts(C, K)
     n = length(y)
 
     llik_out = Vector{T}(undef, n)
 
     for k in 1:K
         indx_k = findall(C.==k)
-        @inbounds llik_out[indx_k] = llik_k(y[indx_k], X[indx_k,:], ObsXIndx[indx_k], lik_params[k], Xstats[k], similarity)[4]
+        @inbounds llik_out[indx_k] = llik_k(y[indx_k], X[indx_k,:], ObsXIndx[indx_k], lik_params[k], Xstats[k], similarity)[:llik_vec]
     end
 
-    return sum(llik_out), llik_out
+    return Dict(:llik => sum(llik_out), :llik_vec => llik_out)
+end
+function llik_all(y::Vector{T}, C::Vector{Int}, 
+    lik_params::Vector{TT} where TT <: LikParams_PPMxMean) where T <: Real
+
+    K = maximum(C)
+    n = length(y)
+
+    llik_out = Vector{T}(undef, n)
+
+    for k in 1:K
+        indx_k = findall(C.==k)
+        @inbounds llik_out[indx_k] = llik_k(y[indx_k], lik_params[k])[:llik_vec]
+    end
+
+    return Dict(:llik => sum(llik_out), :llik_vec => llik_out)
+end
+function llik_all(model::Model_PPMx)
+
+    if typeof( model.state.lik_params[1] ) <: LikParams_PPMxReg
+        DD = llik_all(model.y, model.X, model.state.C, model.obsXIndx,
+                      model.state.lik_params, model.state.Xstats, model.state.similarity)
+    elseif typeof( model.state.lik_params[1] ) <: LikParams_PPMxMean
+        DD = llik_all(model.y, model.state.C, model.state.lik_params)
+    end
+
+    return DD
 end

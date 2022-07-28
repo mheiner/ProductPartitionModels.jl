@@ -3,9 +3,9 @@
 export Cohesion_PPM,
 Similarity_PPMx, Similarity_NNiG_indep, Similarity_NNiChisq_indep, Similarity_NN,
 Similarity_PPMxStats, Similarity_NNiG_indep_stats, Similarity_NN_stats,
-Baseline_measure, Baseline_NormDLUnif,
+Baseline_measure, Baseline_NormDLUnif, Baseline_NormUnif,
 Hypers_shrinkReg, Hypers_DirLap,
-LikParams_PPMx, LikParams_PPMxReg;
+LikParams_PPMx, LikParams_PPMxReg, LikParams_PPMxMean;
 
 abstract type Cohesion_PPM end
 
@@ -92,6 +92,16 @@ mutable struct Baseline_NormDLUnif <: Baseline_measure
     Baseline_NormDLUnif(mu0, sig0, tau0, sig_upper) = new(mu0, sig0, tau0, sig_upper, 1.0e-6) # lower bound on error sd
 end
 
+mutable struct Baseline_NormUnif <: Baseline_measure
+    mu0::Real
+    sig0::Real
+
+    sig_upper::Real
+    sig_lower::Real
+
+    Baseline_NormUnif(mu0, sig0, sig_upper) = new(mu0, sig0, sig_upper, 1.0e-6) # lower bound on error sd
+end
+
 abstract type Hypers_shrinkReg end
 
 mutable struct Hypers_DirLap{T <: Real} <: Hypers_shrinkReg
@@ -110,4 +120,10 @@ mutable struct LikParams_PPMxReg{T <: Real} <: LikParams_PPMx
     beta_hypers::Hypers_shrinkReg
 
     # LikParams_PPMxReg(mu, sig, beta, beta_hypers) = sig <= 0.0 ? error("St. deviation must be positive.") : new(mu, sig, beta, beta_hypers)
+end
+
+mutable struct LikParams_PPMxMean <: LikParams_PPMx
+    mu::Real
+    sig::Real
+    # LikParams_PPMxMean(mu, sig) = sig <= 0.0 ? error("St. deviation must be positive.") : new(mu, sig)
 end

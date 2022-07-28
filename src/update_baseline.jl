@@ -2,7 +2,10 @@
 
 # export ;
 
-function update_mu0!(base::Baseline_NormDLUnif, mu_vec::Vector{T}, prior::Prior_baseline_NormDLUnif) where T <: Real
+function update_mu0!(base::Union{Baseline_NormDLUnif, Baseline_NormUnif}, 
+    mu_vec::Vector{T}, 
+    prior::Union{Prior_baseline_NormDLUnif, Prior_baseline_NormUnif}) where T <: Real
+
     n = length(mu_vec)
     sum_mu = sum(mu_vec)
 
@@ -25,11 +28,15 @@ function logtarget(sig::Real, args::TargetArgs_NormSigUnif)
     ee = args.y .- args.mu
     ss = sum(ee.^2)
     out = -0.5 * ss / sig^2 - length(args.y)*log(sig)
-    return out, ss
+    return Dict(:llik => out, :ss => ss)
 end
 
-function update_sig0!(base::Baseline_NormDLUnif, mu_vec::Vector{T}, prior::Prior_baseline_NormDLUnif, sliceiter::Int) where T <: Real
-    sigout, lt = shrinkSlice(base.sig0, 0.0, prior.sig0_upper,
+function update_sig0!(base::Union{Baseline_NormDLUnif, Baseline_NormUnif}, 
+    mu_vec::Vector{T}, 
+    prior::Union{Prior_baseline_NormDLUnif, Prior_baseline_NormUnif}, 
+    sliceiter::Int) where T <: Real
+
+    sigout, lt, it = shrinkSlice(base.sig0, 0.0, prior.sig0_upper,
                     logtarget, TargetArgs_NormSigUnif(mu_vec, base.mu0),
                     sliceiter)
     base.sig0 = sigout
