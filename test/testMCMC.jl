@@ -53,15 +53,15 @@ y_use = [-0.5925779, 0.7046317, -1.7138394, -0.9799857, -0.6800680]
 
 Random.seed!(220607)
 
-n = 100
-p = 2
+n = 300
+p = 10
 prop_mis = 0.2
 nmis = Int(floor(prop_mis*n*p))
 nobs = n*p - nmis
 X = Matrix{Union{Missing, Float64}}(missing, n, p)
 obs_indx_sim = sample(1:(n*p), nobs; replace=false)
 
-X[obs_indx_sim] = randn(nobs)
+# X[obs_indx_sim] = randn(nobs)
 X[obs_indx_sim] = 0.1*randn(nobs)
 
 size(X)
@@ -81,8 +81,8 @@ for i in findall(Ctrue .== 3)
 end
 X
 
-α = 1.5
-# α = 1.0
+# α = 1.5
+α = 1.0
 logα = log(α)
 cohesion = Cohesion_CRP(logα, 0, true)
 
@@ -111,7 +111,7 @@ lcohes, Xstat, lsimilar = get_lcohlsim(C, X, cohesion, similarity)
 ## G0; controls only y|x
 μ0 = 0.0
 σ0 = 5.0
-τ0 = 1.0 # scale of DL shrinkage
+τ0 = 0.1 # scale of DL shrinkage
 σ_upper = 10.0
 
 sampling_model = :Reg # running this with betas all fixed at 0 should give same answer as :Mean
@@ -167,17 +167,17 @@ model.state.baseline.tau0 = 0.1
 using Dates
 timestart = Dates.now()
 
-# @benchmark mcmc!(model, 50,
+@benchmark mcmc!(model, 50,
 # @profview mcmc!(model, 50,
-mcmc!(model, 5000,
+# mcmc!(model, 5000,
     save=false,
     thin=1,
     n_procs=1,
     report_filename="",
     report_freq=100,
-    update=[:C, :mu, :sig, :mu0, :sig0]
+    # update=[:C, :mu, :sig, :mu0, :sig0]
     # update=[:C, :mu]
-    # update=[:C, :mu, :sig, :beta, :mu0, :sig0]
+    update=[:C, :mu, :sig, :beta, :mu0, :sig0]
 )
 
 etr(timestart; n_iter_timed=1000, n_keep=1000, thin=1, outfilename="")

@@ -516,7 +516,7 @@ function update_Ci_MH_Mean!(model::Model_PPMx, i::Int, K::Int, S::Vector{Int}, l
                 model.state.lcohesions[Ci_old] = lcohesions0[Ci_old]
                 model.state.Xstats[Ci_old] = Xstats0_Ci_old
                 model.state.lsimilarities[Ci_old] = lsimilar0[Ci_old]
-                
+
                 llik_vec[i] = llik_Ci_cand
 
                 S[Ci_cand] += 1
@@ -547,20 +547,20 @@ function update_C!(model::Model_PPMx, update_lik_params::Vector{Symbol}=[:mu, :s
             indx_k = findall(model.state.C.==k)
             llik_now[k] = llik_k(model.y[indx_k], model.X[indx_k,:], model.obsXIndx[indx_k], model.state.lik_params[k], model.state.Xstats[k], model.state.similarity)[:llik]
         end
-    
+
         for i in obs_ord
             # llik_now, K, S = update_Ci!(model, i, K, S, llik_now, update_lik_params)  # full Gibbs, Algo 8
             llik_now, K, S = update_Ci_MH_Reg!(model, i, K, S, llik_now, update_lik_params)  # MH, Algo 7
-        end    
+        end
 
     elseif typeof(model.state.lik_params[1]) <: LikParams_PPMxMean
 
         llik_now = llik_all(model.y, model.state.C, model.state.lik_params)[:llik_vec] # vector of length n
-    
+
         for i in obs_ord
             # llik_now, K, S = update_Ci!(model, i, K, S, llik_now, update_lik_params)  # full Gibbs, Algo 8
             llik_now, K, S = update_Ci_MH_Mean!(model, i, K, S, llik_now, update_lik_params)  # MH, Algo 7
-        end    
+        end
 
     end
 
