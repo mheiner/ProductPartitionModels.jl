@@ -80,7 +80,7 @@ function init_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     S = StatsBase.counts(C, K)
 
     if sampling_model == :Reg
-        baseline = Baseline_NormDLUnif(0.0, 5.0, 1.0, 10.0)
+        baseline = Baseline_NormDLUnif(0.0, 5.0, 0.1, 10.0)
 
         if lik_rand
             lik_params = [ LikParams_PPMxReg(randn(), # mu
@@ -237,6 +237,8 @@ function Model_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}}
         )
 
     state.baseline.sig0 < prior.baseline.sig0_upper || error("sig0 in the baseline must be initialized below its prior upper bound.")
+    all([ state.lik_params[j].sig for j in 1:maximum(state.C) ] .<= state.baseline.sig_upper) || error("error sd (sig) must be at or below sig_upper for all clusters.")
+    all([ state.lik_params[j].sig for j in 1:maximum(state.C) ] .>= state.baseline.sig_lower) || error("error sd (sig) must be at or above sig_lower for all clusters.")
 
     return Model_PPMx(deepcopy(y), deepcopy(X), obsXIndx, n, p, prior, state)
 end

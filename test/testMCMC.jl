@@ -54,7 +54,7 @@ y_use = [-0.5925779, 0.7046317, -1.7138394, -0.9799857, -0.6800680]
 Random.seed!(220607)
 
 n = 300
-p = 10
+p = 2
 prop_mis = 0.2
 nmis = Int(floor(prop_mis*n*p))
 nobs = n*p - nmis
@@ -90,8 +90,8 @@ cohesion = Cohesion_CRP(logα, 0, true)
 # similarity = Similarity_NNiG_indep(0.0, 0.1, 1.0, 1.0)
 # similarity = Similarity_NNiG_indep(0.0, 0.1, 4.0, 4.0)
 # similarity = Similarity_NNiG_indep(0.0, 2.0, 4.0, 0.2)
-# similarity = Similarity_NNiChisq_indep(0.0, 0.1, 4.0, 0.25^2) # m0, sc_prec0, nu0, s20
-similarity = Similarity_NNiChisq_indep(0.0, 0.1, 4.0, 0.5^2) # m0, sc_prec0, nu0, s20
+similarity = Similarity_NNiChisq_indep(0.0, 0.1, 4.0, 0.25^2) # m0, sc_prec0, nu0, s20
+# similarity = Similarity_NNiChisq_indep(0.0, 0.1, 4.0, 0.5^2) # m0, sc_prec0, nu0, s20
 
 # similarity = Similarity_NN(sqrt(0.5), 0.0, 1.0)
 # similarity = Similarity_NN(1.0, 0.0, 1.0)
@@ -112,7 +112,11 @@ lcohes, Xstat, lsimilar = get_lcohlsim(C, X, cohesion, similarity)
 μ0 = 0.0
 σ0 = 5.0
 τ0 = 0.1 # scale of DL shrinkage
-σ_upper = 10.0
+# τ0 = 5.0 # scale of DL shrinkage
+# σ_upper = 10.0
+σ_upper = 3.0
+# σ_upper = 1.1
+
 
 sampling_model = :Reg # running this with betas all fixed at 0 should give same answer as :Mean
 sampling_model = :Mean
@@ -124,7 +128,7 @@ elseif sampling_model == :Reg
     G0 = Baseline_NormDLUnif(μ0, σ0, τ0, σ_upper)
     DD_sim = sim_lik(C, X, similarity, Xstat, G0)
 end
-
+# @enter sim_lik(C, X, similarity, Xstat, G0)
 
 y = deepcopy(DD_sim[:y])
 μ = deepcopy(DD_sim[:mu])
@@ -134,7 +138,7 @@ y = deepcopy(DD_sim[:y])
 y_use = deepcopy(y)
 # y
 μ
-β
+println(β)
 σ
 
 # model = Model_PPMx(y, X, C)
@@ -161,7 +165,7 @@ model.prior
 
 refresh!(model.state, model.y, model.X, model.obsXIndx, true)
 model.state.llik
-model.state.baseline.tau0 = 1.0
+# model.state.baseline.tau0 = 1.0
 model.state.baseline.tau0 = 0.1
 
 using Dates
@@ -320,7 +324,7 @@ x2range = collect(extrema(skipmissing(X[:,2]))) + [-1, 1]
 yrange = collect(extrema(y)) + [-1, 1]
 
 
-# C_use = deepcopy(C)
+C_use = deepcopy(C)
 # C_use = deepcopy(model.state.C)
 
 StatsBase.countmap(Crsalso)
@@ -328,6 +332,7 @@ misclass = (Ctrue .!= Crsalso) .* 1
 
 C_color = deepcopy(Ctrue)
 C_shape = deepcopy(Crsalso) + 3*misclass # so that misclassified obs are open-style symbols
+# C_shape = deepcopy(Ctrue)
 
 
 indx_cc = findall( [ all(.!ismissing.(X[i,1:2])) for i in 1:n ] )

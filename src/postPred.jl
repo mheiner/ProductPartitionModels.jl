@@ -139,7 +139,7 @@ function postPred(Xpred::Union{Matrix{T},Matrix{Union{T,Missing}}},
     return Ypred, Cpred, Mean_pred
 end
 function postPred(model::Model_PPMx,
-    sims::Vector{Dict{Symbol,Any}}) where {T<:Real}
+    sims::Vector{Dict{Symbol,Any}})
 
     ## currently assumes cohesion and similarity parameters are fixed
     ## treats each input as the n+1th observation with no consideration of them clustering together
