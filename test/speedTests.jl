@@ -18,10 +18,10 @@ using RCall
 
 ### loop through settings
 
-prop_mis = 0.2
+# prop_mis = 0.2
 
-# n = 100
-# p = 5
+# n = 1000
+# p = 50
 
 # datatype = :llinear
 # datatype = :flat
@@ -95,7 +95,8 @@ for n in [100, 300]
             report_freq=100,
             update=[:C, :mu, :sig, :beta, :mu0, :sig0]
         )
-        bbb = run(bb, samples=10, seconds=5000)
+        # bbb = run(bb, samples=10, seconds=5000)
+        bbb = run(bb, samples=1)
         # median(bbb) |> println
         # std(bbb) |> println
         # dump(bbb) |> println

@@ -11,6 +11,15 @@ abstract type Cohesion_PPM end
 
 abstract type Similarity_PPMx end
 
+
+"""
+    Similarity_NNiG_indep(m0, sc_prec0, a0, b0)
+
+PPMx Similarity type characterized by the normal and normal-inverse-gamma conjugate pair: \\
+x | mu, sig2 ~ N(mu, sig2), \\
+mu | sig2 ~ N(`m0`, sig2/`sc_prec0`), \\
+sig2 ~ IG(shape = `a0`, scale = `b0`).
+"""
 mutable struct Similarity_NNiG_indep <: Similarity_PPMx
 
     # IG(sig2; shape=a, scale=b) N(mu; mean=mu0, variance=sig2/sc_prec0)
@@ -28,11 +37,21 @@ mutable struct Similarity_NNiG_indep <: Similarity_PPMx
         log(sc_prec0), SpecialFunctions.loggamma(a0), log(b0))
 end
 
+"""
+    Similarity_NNiChisq_indep(m0, sc_prec0, nu0, s20)
+
+PPMx Similarity type characterized by the normal and normal-scaled-inverse-chi-squared conjugate pair: \\
+x | mu, sig2 ~ N(mu, sig2), \\
+mu | sig2 ~ N(`m0`, sig2/`sc_prec0`), \\
+sig2 ~ IG(shape = 0.5 ``\\times`` `nu0`, scale = 0.5 ``\\times`` `nu0` ``\\times`` `s20`).
+
+In this parameterization, `nu0` is interpreted as a prior sample size and `s20` is the prior harmonic-mean point estimate of sig2.
+"""
 mutable struct Similarity_NNiChisq_indep <: Similarity_PPMx
 
     # similarity of x vector is marginal density of x when
     # x_i | mu, sig2 ~iid N(mean = mu, variance = sig2)
-    # p(mu, sig2) = N(mu; mean = mu0, variance = sig2/sc_prec0) IG(sig2; shape = a, scale = b)
+    # p(mu, sig2) = N(mu; mean = mu0, variance = sig2/sc_prec0) IG(sig2; shape = a0, scale = b0)
 
     m0::Real
     sc_prec0::Real
@@ -52,6 +71,13 @@ mutable struct Similarity_NNiChisq_indep <: Similarity_PPMx
         log(sc_prec0), SpecialFunctions.loggamma(0.5*nu0), log(0.5*nu0*s20))
 end
 
+"""
+    Similarity_NN(sd, m0, sd0)
+
+PPMx Similarity type characterized by the normal-normal (with known variance) conjugate pair: \\
+x | mu ~ N(mu, `sd`^2), \\
+mu ~ N(`m0`, `sd0`^2).
+"""
 mutable struct Similarity_NN <: Similarity_PPMx
 
     # N(zeta, sd=sd)
@@ -80,6 +106,15 @@ end
 
 abstract type Baseline_measure end
 
+"""
+    Baseline_NormDLUnif(mu0, sig0, tau0, sig_upper)
+
+Parameters of the baseline distribution for the self-marginalizing Gaussian sampling model with centered linear predictors: \\
+    y | mu, beta, sig ~ N(mu + Z'beta, scale = sig), \\
+    mu ~ N(`mu0`, scale = `sig0`), \\
+    beta ~ Dirichlet\\_Laplace with global shrinkage parameter `tau0`, \\
+    sig ~ Unif(`sig_lower`, `sig_upper`).
+"""
 mutable struct Baseline_NormDLUnif <: Baseline_measure
     mu0::Real
     sig0::Real
@@ -92,6 +127,14 @@ mutable struct Baseline_NormDLUnif <: Baseline_measure
     Baseline_NormDLUnif(mu0, sig0, tau0, sig_upper) = new(mu0, sig0, tau0, sig_upper, 1.0e-6) # lower bound on error sd
 end
 
+"""
+    Baseline_NormUnif(mu0, sig0, sig_upper)
+
+Parameters of the baseline distribution for the Gaussian sampling model: \\
+    y | mu, sig ~ N(mu, scale = sig), \\
+    mu ~ N(`mu0`, scale = `sig0`), \\
+    sig ~ Unif(`sig_lower`, `sig_upper`).
+"""
 mutable struct Baseline_NormUnif <: Baseline_measure
     mu0::Real
     sig0::Real

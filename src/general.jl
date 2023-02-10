@@ -13,6 +13,11 @@ struct ObsXIndx
     indx_mis::Vector{Int}
 end
 
+"""
+    ObsXIndx(x)
+
+Index missing and observed elements of vector `x` and return vector: (number of observed entries, number of missing entries, indexes of observed entries, indexes of missing entries).
+"""
 function ObsXIndx(x::Union{Vector{Union{T, Missing}}, Vector{T}, Vector{Missing}} where T <: Real)
     p = length(x)
 
@@ -27,6 +32,11 @@ function ObsXIndx(x::Union{Vector{Union{T, Missing}}, Vector{T}, Vector{Missing}
     return ObsXIndx(n_obs, n_mis, indx_obs, indx_mis)
 end
 
+"""
+    State_PPMx
+
+Store a complete state for a PPMx, including log-likelihood value and MCMC iteration.
+"""
 mutable struct State_PPMx{T <: LikParams_PPMx, TT <: Baseline_measure, TTT <: Cohesion_PPM, TTTT <: Similarity_PPMx,
                           TR <: Real, T5 <: Similarity_PPMxStats}
     C::Vector{Int}
@@ -44,9 +54,14 @@ mutable struct State_PPMx{T <: LikParams_PPMx, TT <: Baseline_measure, TTT <: Co
     iter::Int
 end
 
+"""
+    get_lcohlsim(C, X, cohesion, similarity)
+
+Calculate log cohesions, Xstats, and log similarity scores with covariate matrix `X` under any allocation vector `C`, `cohesion`, and `similarity`.
+"""
 function get_lcohlsim(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     cohesion::TT, similarity::TTT) where {T <: Real, TT <: Cohesion_PPM, TTT <: Similarity_PPMx}
-    ## calculates log cohesions, Xstats, and log similarity scores if any C, cohesion, and similarity; see similarity.jl and cohesion.jl
+    ## calculates log cohesions, Xstats, and log similarity scores for any C, cohesion, and similarity; see similarity.jl and cohesion.jl
 
     p = size(X, 2)
     K = maximum(C)
@@ -59,6 +74,20 @@ function get_lcohlsim(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missin
     lcohesions, Xstats, lsimilarities
 end
 
+"""
+    init_PPMx(y, X, C_init=0[, similarity_type=:NN, sampling_model=:Reg, lik_rand=true])
+
+Initialize a complete PPMx state.
+
+If `C_init` is 0, initialize every unit to a singleton cluster; if 1, all units share one cluster; 
+if a vector of integers, it gives the allocation of units.
+
+Similarity types include `:NN`, `:NNiG_indep`, and `:NNiChisq_indep`.
+
+Sampling models include `:Reg` (regression in the sampling model), `:Mean` (no regression).
+
+If `lik_rand` is true, generate cluster-specific parameters from the baseline.
+"""
 function init_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     C_init::Union{Int, Vector{Int}}=0;
     similarity_type::Symbol=:NN,
@@ -133,6 +162,11 @@ function init_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     return State_PPMx(C, lik_params, baseline, cohesion, similarity, lcohesions, Xstats, lsimilarities, llik, iter)
 end
 
+"""
+    refresh!(state, y, X, obsXIndx, refresh_llik=true)
+
+Update the log likelihood and calculated cohesions, Xstats, and similarity scores in the PPMx state if any of allocation, baseline, lik_params, cohesion, or similarity change.
+"""
 function refresh!(state::State_PPMx, y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}}, obsXIndx::Vector{ObsXIndx}, refresh_llik::Bool=true) where T <: Real
     ## updates the log likelihood and calculated cohesions, Xstats, and similarity scores if any of C, baseline, lik_params, cohesion, or similarity change
 
@@ -164,27 +198,47 @@ mutable struct Prior_cohesion_CRP{TR <: Real} <: Prior_cohesion
     alpha_sc::TR
 end
 
-mutable struct Prior_similarity_NiG_indep{TR <: Real} <: Prior_similarity
+mutable struct Prior_similarity_NNiG_indep{TR <: Real} <: Prior_similarity
 end
 
+"""
+    Prior_baseline_NormDLUnif
+
+Prior hyperparamters for the Baseline_NormDLUnif type.
+"""
 mutable struct Prior_baseline_NormDLUnif{TR <: Real} <: Prior_baseline
     mu0_mean::TR
     mu0_sd::TR
     sig0_upper::TR
 end
 
+"""
+    Prior_baseline_NormDLUnif
+
+Prior hyperparamters for the Baseline_NormUnif type.
+"""
 mutable struct Prior_baseline_NormUnif{TR <: Real} <: Prior_baseline
     mu0_mean::TR
     mu0_sd::TR
     sig0_upper::TR
 end
 
+"""
+    Prior_PPMx
+
+Collect prior information for cohesion, similarity, and baseline in a PPMx.
+"""
 mutable struct Prior_PPMx
     cohesion::Union{Nothing, Prior_cohesion}
     similarity::Union{Nothing, Prior_similarity}
     baseline::Union{Nothing, Prior_baseline}
 end
 
+"""
+    Prior_PPMx
+
+Collect prior information for cohesion, similarity, and baseline in a PPMx.
+"""
 function init_PPMx_prior(sampling_model::Symbol=:Reg)
 
     if sampling_model == :Reg
@@ -219,6 +273,20 @@ mutable struct Model_PPMx{T <: Real}
     state::State_PPMx
 end
 
+"""
+    Model_PPMx(y, X, C_init=0, similarity_type=:NN, sampling_model=:Reg, init_lik_rand=true)
+
+Create and initialize a complete PPMx model object with data, prior, and current (parameter) state. 
+
+If `C_init` is 0, initialize every unit to a singleton cluster; if 1, all units share one cluster; 
+if a vector of integers, it gives the allocation of units.
+
+Similarity types include `:NN`, `:NNiG_indep`, and `:NNiChisq_indep`.
+
+Sampling models include `:Reg` (regression in the sampling model), `:Mean` (no regression).
+
+If `lik_rand` is true, generate cluster-specific parameters from the baseline.
+"""
 function Model_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
     C_init::Union{Int, Vector{Int}}=0;
     similarity_type::Symbol=:NN,

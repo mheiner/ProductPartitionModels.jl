@@ -86,13 +86,22 @@ function etr(timestart::DateTime; n_iter_timed::Int, n_keep::Int, thin::Int, out
     end
 end
 
+"""
+    mcmc!(model, n_keep[, save=true, thin=1, n_procs=1, report_filename="", 
+        report_freq=10000, update=[:C, :mu, :sig, :beta, :mu0, :sig0], 
+        monitor=[:C, :mu, :sig, :beta, :mu0, :sig0, :llik_mat],
+        slice_max_iter=5000])
 
+Run MCMC on the `model` ojbect for `n_keep` ``\\times`` `thin` iterations. Optionally `save` (output) `n_keep` samples.
+
+Output is written to `report_filename`, or standard output if `report_filename` is an empty string.
+"""
 function mcmc!(model::Model_PPMx, n_keep::Int;
     save::Bool=true,
     thin::Int=1,
     n_procs::Int=1,
     report_filename::String="",
-    report_freq::Int=10000,
+    report_freq::Int=1000,
     update::Vector{Symbol}=[:C, :mu, :sig, :beta, :mu0, :sig0],
     monitor::Vector{Symbol}=[:C, :mu, :sig, :beta, :mu0, :sig0, :llik_mat],
     slice_max_iter::Int=5000

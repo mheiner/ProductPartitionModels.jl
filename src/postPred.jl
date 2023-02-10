@@ -34,6 +34,17 @@ function predWeights(i::Int,
     return lw .- maximum(lw)
 end
 
+"""
+    postPred(Xpred, model, sims, update_params=[:mu, :sig, :beta, :mu0, :sig0])
+
+Draw samples from the (modified) posterior predictive distribution (as well as allocations and means of the predictive distribution) 
+given new covariate values in `Xpred`. If `Xpred` is not supplied, predictions are made for the original data included in the model.
+
+Each input is treated as the n+1th observation. The predicitive distribution is modified in that dynamically centered/scaled predictors 
+appearing in the likelihood for `:Reg` models are not updated to include the new observation.
+
+Parameters in `update_params` are assumed to appear in the posterior samples.
+"""
 function postPred(Xpred::Union{Matrix{T},Matrix{Union{T,Missing}}},
     model::Model_PPMx,
     sims::Vector{Dict{Symbol,Any}},
@@ -191,6 +202,18 @@ function postPred(model::Model_PPMx,
     return Ypred, Mean_pred
 end
 
+"""
+    postPredLogdens(Xpred, y_grid, model, sims[, update_params=[:mu, :sig, :beta, :mu0, :sig0], crossxy=true])
+
+Draw samples of values for the predictive log density at `y_grid` given new covariate values in `Xpred`. 
+If `crossxy` is true, evaluate the predicitve log density at each combination of `Xpred` and `y_grid`. 
+If `crossxy` is false, each entry of `y_grid` will correspond to a row of `Xpred`, which is useful for log-density evaluation for observed units.
+
+Each input is treated as the n+1th observation. The predicitive distribution is modified in that dynamically centered/scaled predictors 
+appearing in the likelihood for `:Reg` models are not updated to include the new observation.
+
+Parameters in `update_params` are assumed to appear in the posterior samples.
+"""
 function postPredLogdens(Xpred::Union{Matrix{T},Matrix{Union{T,Missing}}},
     y_grid::Vector{T},
     model::Model_PPMx,
