@@ -532,7 +532,10 @@ end
 
 
 
-function update_C!(model::Model_PPMx, update_lik_params::Vector{Symbol}=[:mu, :sig, :beta])
+function update_C!(model::Model_PPMx, 
+    update_lik_params::Vector{Symbol}=[:mu, :sig, :beta], 
+    method::Symbol=:MH)
+    # method one of :MH, :FC
 
     K = length(model.state.lik_params)
     S = StatsBase.counts(model.state.C, K)
@@ -548,20 +551,30 @@ function update_C!(model::Model_PPMx, update_lik_params::Vector{Symbol}=[:mu, :s
             llik_now[k] = llik_k(model.y[indx_k], model.X[indx_k,:], model.obsXIndx[indx_k], model.state.lik_params[k], model.state.Xstats[k], model.state.similarity)[:llik]
         end
 
-        for i in obs_ord
-            # llik_now, K, S = update_Ci!(model, i, K, S, llik_now, update_lik_params)  # full Gibbs, Algo 8
-            llik_now, K, S = update_Ci_MH_Reg!(model, i, K, S, llik_now, update_lik_params)  # MH, Algo 7
+        if method == :MH
+            for i in obs_ord
+                llik_now, K, S = update_Ci_MH_Reg!(model, i, K, S, llik_now, update_lik_params)  # MH, Algo 7
+            end
+        elseif method == :FC
+            for i in obs_ord
+                llik_now, K, S = update_Ci!(model, i, K, S, llik_now, update_lik_params)  # full Gibbs, Algo 8
+            end            
         end
+
 
     elseif typeof(model.state.lik_params[1]) <: LikParams_PPMxMean
 
         llik_now = llik_all(model.y, model.state.C, model.state.lik_params)[:llik_vec] # vector of length n
 
-        for i in obs_ord
-            # llik_now, K, S = update_Ci!(model, i, K, S, llik_now, update_lik_params)  # full Gibbs, Algo 8
-            llik_now, K, S = update_Ci_MH_Mean!(model, i, K, S, llik_now, update_lik_params)  # MH, Algo 7
+        if method == :MH
+            for i in obs_ord
+                llik_now, K, S = update_Ci_MH_Mean!(model, i, K, S, llik_now, update_lik_params)  # MH, Algo 7
+            end
+        elseif method == :FC
+            for i in obs_ord
+                llik_now, K, S = update_Ci!(model, i, K, S, llik_now, update_lik_params)  # full Gibbs, Algo 8
+            end
         end
-
     end
 
     return nothing
