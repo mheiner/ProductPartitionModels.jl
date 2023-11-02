@@ -7,7 +7,7 @@ function update_Ci!(model::Model_PPMx, i::Int, K::Int, S::Vector{Int}, llik_old:
     model.state.C[i] = 0
     wasnot_single = S[Ci_old] > 1
 
-    if S[Ci_old] > 1
+    if wasnot_single
 
         S[Ci_old] -= 1
 
@@ -46,11 +46,11 @@ function update_Ci!(model::Model_PPMx, i::Int, K::Int, S::Vector{Int}, llik_old:
     llik0 = deepcopy(llik_old)
     llik1 = Vector{Float64}(undef, K)
     for k in 1:K
-        indx_k = findall(model.state.C.==k) ## currently, C[i] = 0, so obs i gets omitted from the calculation
-        if wasnot_single && k == Ci_old
+        indx_k = findall(model.state.C .== k) ## currently, C[i] = 0, so obs i gets omitted from the calculation
+        if wasnot_single && (k == Ci_old)
             llik0[k] = llik_k(model.y[indx_k], model.X[indx_k,:], model.obsXIndx[indx_k], model.state.lik_params[k], model.state.Xstats[k], model.state.similarity)[:llik]
             llik1[k] = deepcopy(llik_old[k])
-        else
+        else # was_single OR k != Ci_old
             indx_k_cand = vcat(indx_k, i)
             llik1[k] = llik_k(model.y[indx_k_cand], model.X[indx_k_cand,:], model.obsXIndx[indx_k_cand], model.state.lik_params[k], Xstats1[k], model.state.similarity)[:llik]
         end
