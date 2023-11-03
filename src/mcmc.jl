@@ -105,7 +105,8 @@ function mcmc!(model::Model_PPMx, n_keep::Int;
     update::Vector{Symbol}=[:C, :mu, :sig, :beta, :mu0, :sig0],
     monitor::Vector{Symbol}=[:C, :mu, :sig, :beta, :mu0, :sig0, :llik_mat],
     slice_max_iter::Int=5000,
-    upd_c_mtd::Symbol=:MH
+    upd_c_mtd::Symbol=:MH,
+    M_newclust::Int=10
     )
 
     ## output files
@@ -138,7 +139,7 @@ function mcmc!(model::Model_PPMx, n_keep::Int;
         for j in 1:thin
 
             if (:C in update_outer)
-                update_C!(model, update_lik, upd_c_mtd) # refreshes model state except llik
+                update_C!(model, update_lik, upd_c_mtd, M_newclust) # refreshes model state except llik
             end
 
             if up_lik

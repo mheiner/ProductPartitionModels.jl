@@ -4,7 +4,7 @@ fit_PPMx = function(y, X, Xpred, nburn, nkeep, nthin, pred_insamp=FALSE,
                     cohesion, similarity, baseline, baseline_prior, 
                     upd_beta=TRUE, # irrelevant if sampling_model = "Mean"
                     y_grid=NULL, crossxy=TRUE,
-                    upd_c_mtd="MH") {
+                    upd_c_mtd="MH", M_newclust=10) {
   
   julia_assign("y", y)
   julia_command("y = float(y)", show_value=FALSE)
@@ -85,6 +85,7 @@ fit_PPMx = function(y, X, Xpred, nburn, nkeep, nthin, pred_insamp=FALSE,
     julia_command("upd_c_mtd = :MH", show_value=FALSE)
   } else if (upd_c_mtd == "FC") {
     julia_command("upd_c_mtd = :FC", show_value=FALSE)
+    julia_command("M_newclust = M_newclust", show_value=FALSE)
   }
   
   julia_command("for i in 1:length(mod.state.lik_params) mod.state.lik_params[i].sig = 0.1 end", show_value=FALSE) # temporary hack
@@ -102,7 +103,8 @@ fit_PPMx = function(y, X, Xpred, nburn, nkeep, nthin, pred_insamp=FALSE,
         report_filename=progressfile,
         report_freq=Int(report_freq),
         update=upd_params,
-        upd_c_mtd=upd_c_mtd
+        upd_c_mtd=upd_c_mtd,
+        M_newclust=M_newclust
   )', show_value=FALSE)
   
   julia_command('etr(timestart; n_iter_timed=nburn, n_keep=nkeep, thin=nthin, outfilename=progressfile)', show_value=FALSE)
@@ -115,7 +117,8 @@ fit_PPMx = function(y, X, Xpred, nburn, nkeep, nthin, pred_insamp=FALSE,
                report_freq=Int(report_freq),
                update=upd_params,
                monitor=[:C, :mu, :sig, :beta, :mu0, :sig0, :llik_mat],
-               upd_c_mtd=upd_c_mtd
+               upd_c_mtd=upd_c_mtd,
+               M_newclust=M_newclust
   )', show_value=FALSE)
   
   sim_llik = julia_eval("[ sims[ii][:llik] for ii in 1:nkeep ]")

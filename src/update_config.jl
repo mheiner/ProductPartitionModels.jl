@@ -1,6 +1,9 @@
 # update_config.jl
 
-function update_Ci!(model::Model_PPMx, i::Int, K::Int, S::Vector{Int}, llik_old::Vector{T}, update_lik_params::Vector{Symbol}=[:mu, :sig, :beta]) where T <: Real
+function update_Ci!(model::Model_PPMx, i::Int, K::Int, S::Vector{Int}, 
+    llik_old::Vector{T}, update_lik_params::Vector{Symbol}=[:mu, :sig, :beta],
+    M_newclust::Int=10
+    ) where T <: Real
 
     ## remove obs i from current C and modify current cohesions, Xstats, and similarities without obs i
     Ci_old = model.state.C[i]
@@ -37,7 +40,7 @@ function update_Ci!(model::Model_PPMx, i::Int, K::Int, S::Vector{Int}, llik_old:
     Xstats1 = [ [ Similarity_stats(model.state.Xstats[k][j], model.X[i,j], :add) for j in 1:model.p ] for k in 1:K ]
     lsimilar1 = [ [ log_similarity(model.state.similarity, Xstats1[k][j], true) for j in 1:model.p ] for k in 1:K ]
 
-    ## get cohesion and similarity for the extra cluster
+    ## get cohesion and similarity for the extra cluster(s)
     lcohes_newclust = log_cohesion(Cohesion_CRP(model.state.cohesion.logα, 1, true))
     Xstats_newclust = [ Similarity_stats(model.state.similarity, [model.X[i,j]]) for j = 1:model.p ]
     lsimilar_newclust = [ log_similarity(model.state.similarity, Xstats_newclust[j], true) for j in 1:model.p ]
@@ -62,22 +65,30 @@ function update_Ci!(model::Model_PPMx, i::Int, K::Int, S::Vector{Int}, llik_old:
         llik_wgts[k] = sum_llik0 - llik0[k] + llik1[k]
     end
 
-    lik_params_extra = simpri_lik_params(model.state.baseline, model.p, model.state.lik_params[1], update_lik_params)
-    llik_newclust = llik_k(model.y[[i]], model.X[[i],:], [model.obsXIndx[i]], lik_params_extra, Xstats_newclust, model.state.similarity)[:llik]
-    llik_wgts_newclust = sum_llik0 + llik_newclust
+    lik_params_extra = [ simpri_lik_params(model.state.baseline, model.p, model.state.lik_params[1], update_lik_params) for kk in 1:M_newclust ]
+    llik_newclust = [ llik_k(model.y[[i]], model.X[[i],:], [model.obsXIndx[i]], lik_params_extra[kk], Xstats_newclust, model.state.similarity)[:llik] for kk in 1:M_newclust ]
+    llik_wgts_newclust = sum_llik0 .+ llik_newclust
 
     ## calculate weights
-    lw = Vector{Float64}(undef, K + 1)
+    lw = Vector{Float64}(undef, K + M_newclust)
     for k in 1:K
         lw[k] = lcohesions1[k] + sum(lsimilar1[k]) - model.state.lcohesions[k] - sum(model.state.lsimilarities[k]) + llik_wgts[k]
     end
 
-    ## weight for new singleton cluster
-    lw[K + 1] = lcohes_newclust + sum(lsimilar_newclust) + llik_wgts_newclust
+    ## weight for new singleton cluster(s)
+    logM_nc = log(M_newclust)
+    for kk in 1:M_newclust
+        lw[K + kk] = lcohes_newclust + sum(lsimilar_newclust) + llik_wgts_newclust[kk] - logM_nc
+    end
 
     ## sample membership
     lw = lw .- maximum(lw)
     Ci_out = StatsBase.sample(StatsBase.Weights(exp.(lw)))
+    
+    if Ci_out > K
+        which_newclust = Ci_out - K
+        Ci_out = K + 1
+    end
 
     ## continuing log likelihood
     llik_out = deepcopy(llik0)
@@ -85,11 +96,11 @@ function update_Ci!(model::Model_PPMx, i::Int, K::Int, S::Vector{Int}, llik_old:
     ## refresh model state to reflect update
     model.state.C[i] = Ci_out
     if Ci_out > K
-        push!(model.state.lik_params, lik_params_extra)
+        push!(model.state.lik_params, lik_params_extra[which_newclust])
         push!(model.state.lcohesions, lcohes_newclust)
         push!(model.state.Xstats, Xstats_newclust)
         push!(model.state.lsimilarities, lsimilar_newclust)
-        push!(llik_out, llik_newclust)
+        push!(llik_out, llik_newclust[which_newclust])
         K += 1
         push!(S, 1)
     else
@@ -534,7 +545,7 @@ end
 
 function update_C!(model::Model_PPMx, 
     update_lik_params::Vector{Symbol}=[:mu, :sig, :beta], 
-    method::Symbol=:MH)
+    method::Symbol=:MH, M_newclust::Int=10)
     # method one of :MH, :FC
 
     K = length(model.state.lik_params)
@@ -557,7 +568,7 @@ function update_C!(model::Model_PPMx,
             end
         elseif method == :FC
             for i in obs_ord
-                llik_now, K, S = update_Ci!(model, i, K, S, llik_now, update_lik_params)  # full Gibbs, Algo 8
+                llik_now, K, S = update_Ci!(model, i, K, S, llik_now, update_lik_params, M_newclust)  # full Gibbs, Algo 8
             end            
         end
 
@@ -572,7 +583,7 @@ function update_C!(model::Model_PPMx,
             end
         elseif method == :FC
             for i in obs_ord
-                llik_now, K, S = update_Ci!(model, i, K, S, llik_now, update_lik_params)  # full Gibbs, Algo 8
+                llik_now, K, S = update_Ci!(model, i, K, S, llik_now, update_lik_params, M_newclust)  # full Gibbs, Algo 8
             end
         end
     end
