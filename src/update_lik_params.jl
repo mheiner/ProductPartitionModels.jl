@@ -2,7 +2,7 @@
 
 struct TargetArgs_EsliceBetas{T <: Real, TT <: LikParams_PPMxReg, TTT <: Similarity_PPMxStats, TTTT <: Similarity_PPMx} <: TargetArgs
     y_k::Vector{T}
-    X_k::Union{Matrix{T}, Matrix{Union{T, Missing}}}
+    X_k::Union{Matrix{T}, Matrix{Union{T, Missing}}, Matrix{Missing}}
     ObsXIndx_k::Vector{ObsXIndx}
     lik_params_k::TT
     Xstats_k::Vector{TTT}

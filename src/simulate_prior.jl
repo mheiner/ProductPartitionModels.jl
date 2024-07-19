@@ -3,7 +3,7 @@
 
 export sim_partition_PPMx, simpri_lik_params, sim_lik;
 
-function sim_partition_PPMx(logα::Real, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} where T <: Real,
+function sim_partition_PPMx(logα::Real, X::Union{Matrix{T}, Matrix{Union{T, Missing}}, Matrix{Missing}} where T <: Real,
     similarity::Similarity_PPMx)
 
     n, p = size(X)
@@ -136,7 +136,7 @@ function simpri_lik_params(basemeasure::Baseline_NormUnif, p::Int, lik_params_te
 end
 
 
-function sim_lik(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} where T <: Real,
+function sim_lik(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}, Matrix{Missing}} where T <: Real,
     similarity::TT where TT <: Similarity_PPMx,
     Xstats::Vector{Vector{TTT}} where TTT <: Similarity_PPMxStats,
     lik_params::Vector{TTTT} where TTTT <: LikParams_PPMxReg)
@@ -179,7 +179,7 @@ function sim_lik(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} 
 
     return Dict(:y => y, :mu => μ, :beta => β, :sigma => σ)
 end
-function sim_lik(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}} where T <: Real,
+function sim_lik(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}, Matrix{Missing}} where T <: Real,
     similarity::TT where TT <: Similarity_PPMx,
     Xstats::Vector{Vector{TTT}} where TTT <: Similarity_PPMxStats,
     basemeasure::Baseline_measure)

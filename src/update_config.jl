@@ -5,45 +5,74 @@ function update_Ci!(model::Model_PPMx, i::Int, K::Int, S::Vector{Int},
     M_newclust::Int=10
     ) where T <: Real
 
+    # FIXME This algorithm should remove obs i, but if it's a singleton, make the old params one of the extras (needs to be able to return to original state); 
+    ## do not use until corrected.
+    ## Currently implemented ONLY for the :Reg type model and not the :Mean type
+
     ## remove obs i from current C and modify current cohesions, Xstats, and similarities without obs i
     Ci_old = model.state.C[i]
     model.state.C[i] = 0
     wasnot_single = S[Ci_old] > 1
+    # S[Ci_old] -= 1
 
-    if wasnot_single
+    ## cohesions, Xstats, and similarities each with obs i hypothetically in (1) or not in (0) each cluster
 
-        S[Ci_old] -= 1
+    lcohesions0 = deepcopy(model.state.lcohesions)
+    Xstats0 = deepcopy(model.state.Xstats)
+    lsimilar0 = deepcopy(model.state.lsimilarities)
 
-        model.state.lcohesions[Ci_old] = log_cohesion(Cohesion_CRP(model.state.cohesion.logα, S[Ci_old], true))
-
-        for j in 1:model.p
-            model.state.Xstats[Ci_old][j] = Similarity_stats(model.state.Xstats[Ci_old][j], model.X[i,j], :subtract)
-            model.state.lsimilarities[Ci_old][j] = log_similarity(model.state.similarity, model.state.Xstats[Ci_old][j], true)
-        end
-
-    else ## collapse if C[i] was a singleton
-
-        deleteat!(model.state.lcohesions, Ci_old)
-        deleteat!(model.state.Xstats, Ci_old)
-        deleteat!(model.state.lsimilarities, Ci_old)
-        deleteat!(model.state.lik_params, Ci_old)
-        deleteat!(S, Ci_old)
-        deleteat!(llik_old, Ci_old)
-
-        model.state.C[findall(model.state.C .> Ci_old)] .-= 1 # relabel all obs with label higher than the deleted one
-        K -= 1
-
-    end
-
-    ## get cohesions, Xstats, and similarities each with obs i hypothetically added to each cluster
-    lcohesions1 = [ log_cohesion(Cohesion_CRP(model.state.cohesion.logα, S[k] + 1, true)) for k in 1:K ]
-    Xstats1 = [ [ Similarity_stats(model.state.Xstats[k][j], model.X[i,j], :add) for j in 1:model.p ] for k in 1:K ]
-    lsimilar1 = [ [ log_similarity(model.state.similarity, Xstats1[k][j], true) for j in 1:model.p ] for k in 1:K ]
-
+    lcohesions1 = deepcopy(model.state.lcohesions)
+    Xstats1 = deepcopy(model.state.Xstats)
+    lsimilar1 = deepcopy(model.state.lsimilarities)
+    
     ## get cohesion and similarity for the extra cluster(s)
     lcohes_newclust = log_cohesion(Cohesion_CRP(model.state.cohesion.logα, 1, true))
     Xstats_newclust = [ Similarity_stats(model.state.similarity, [model.X[i,j]]) for j = 1:model.p ]
     lsimilar_newclust = [ log_similarity(model.state.similarity, Xstats_newclust[j], true) for j in 1:model.p ]
+
+    # do the above in the style of llik calculations below
+    for k in 1:K
+        if wasnot_single && (k == Ci_old)
+
+            lcohesions0[k] = log_cohesion(Cohesion_CRP(model.state.cohesion.logα, S[k] - 1, true))
+            # lcohesions1[k] is the old value that was copied
+
+            for j in 1:model.p
+                Xstats0[k][j] = Similarity_stats(model.state.Xstats[k][j], model.X[i,j], :subtract)
+                lsimilar0[k][j] = log_similarity(model.state.similarity, Xstats0[k][j], true)
+
+                # Xstats1[k][j] is the old value that was copied
+                # lsimilar1[k][j] is the old value that was copied
+            end
+
+        elseif (k == Ci_old) # was single and k == Ci_old
+
+            lcohesions0[k] = 0.0
+            # lcohesions1[k] is the old value that was copied
+
+            for j in 1:model.p
+                # Xstats0[k][j] will go unmodified because it is not needed here
+                lsimilar0[k][j] = 0.0
+
+                # Xstats1[k][j] is the old value that was copied
+                # lsimilar1[k][j] is the old value that was copied
+            end
+
+        else # k != Ci_old
+
+            # lcohesions0[k] is the old value that was copied
+            lcohesions1[k] = log_cohesion(Cohesion_CRP(model.state.cohesion.logα, S[k] + 1, true))
+
+            for j in 1:model.p
+                # Xstats0[k][j] is the old value that was copied
+                # lsimilar0[k][j] is the old value that was copied
+
+                Xstats1[k][j] = Similarity_stats(model.state.Xstats[k][j], model.X[i,j], :add)
+                lsimilar1[k][j] = log_similarity(model.state.similarity, Xstats1[k][j], true)
+            end
+
+        end
+    end
 
     ## calculate llik with obs i assigned to each cluster, including the extra
     llik0 = deepcopy(llik_old)
@@ -51,9 +80,12 @@ function update_Ci!(model::Model_PPMx, i::Int, K::Int, S::Vector{Int},
     for k in 1:K
         indx_k = findall(model.state.C .== k) ## currently, C[i] = 0, so obs i gets omitted from the calculation
         if wasnot_single && (k == Ci_old)
-            llik0[k] = llik_k(model.y[indx_k], model.X[indx_k,:], model.obsXIndx[indx_k], model.state.lik_params[k], model.state.Xstats[k], model.state.similarity)[:llik]
+            llik0[k] = llik_k(model.y[indx_k], model.X[indx_k,:], model.obsXIndx[indx_k], model.state.lik_params[k], Xstats0[k], model.state.similarity)[:llik]
             llik1[k] = deepcopy(llik_old[k])
-        else # was_single OR k != Ci_old
+        elseif (k == Ci_old)
+            llik0[k] = 0.0 ## is this right?
+            llik1[k] = deepcopy(llik_old[k])
+        else # k != Ci_old
             indx_k_cand = vcat(indx_k, i)
             llik1[k] = llik_k(model.y[indx_k_cand], model.X[indx_k_cand,:], model.obsXIndx[indx_k_cand], model.state.lik_params[k], Xstats1[k], model.state.similarity)[:llik]
         end
@@ -72,7 +104,7 @@ function update_Ci!(model::Model_PPMx, i::Int, K::Int, S::Vector{Int},
     ## calculate weights
     lw = Vector{Float64}(undef, K + M_newclust)
     for k in 1:K
-        lw[k] = lcohesions1[k] + sum(lsimilar1[k]) - model.state.lcohesions[k] - sum(model.state.lsimilarities[k]) + llik_wgts[k]
+        lw[k] = lcohesions1[k] + sum(lsimilar1[k]) - lcohesions0[k] - sum(lsimilar0[k]) + llik_wgts[k]
     end
 
     ## weight for new singleton cluster(s)
@@ -95,7 +127,16 @@ function update_Ci!(model::Model_PPMx, i::Int, K::Int, S::Vector{Int},
 
     ## refresh model state to reflect update
     model.state.C[i] = Ci_out
-    if Ci_out > K
+
+    if (Ci_out != Ci_old) && (Ci_out <= K) # if moving within existing clusters, migrate to new cluster
+        model.state.lcohesions[Ci_out] = deepcopy(lcohesions1[Ci_out])
+        model.state.Xstats[Ci_out] = deepcopy(Xstats1[Ci_out])
+        model.state.lsimilarities[Ci_out] = deepcopy(lsimilar1[Ci_out])
+        llik_out[Ci_out] = deepcopy(llik1[Ci_out])
+        S[Ci_out] += 1
+    end
+
+    if Ci_out > K # if moving to a newly created cluster, migrate there
         push!(model.state.lik_params, lik_params_extra[which_newclust])
         push!(model.state.lcohesions, lcohes_newclust)
         push!(model.state.Xstats, Xstats_newclust)
@@ -103,13 +144,30 @@ function update_Ci!(model::Model_PPMx, i::Int, K::Int, S::Vector{Int},
         push!(llik_out, llik_newclust[which_newclust])
         K += 1
         push!(S, 1)
-    else
-        model.state.lcohesions[Ci_out] = deepcopy(lcohesions1[Ci_out])
-        model.state.Xstats[Ci_out] = deepcopy(Xstats1[Ci_out])
-        model.state.lsimilarities[Ci_out] = deepcopy(lsimilar1[Ci_out])
-        llik_out[Ci_out] = deepcopy(llik1[Ci_out])
-        S[Ci_out] += 1
     end
+
+    if (!wasnot_single) && (Ci_out != Ci_old) ## if C[i] was a singleton and changed groups, collapse    
+        deleteat!(model.state.lcohesions, Ci_old)
+        deleteat!(model.state.Xstats, Ci_old)
+        deleteat!(model.state.lsimilarities, Ci_old)
+        deleteat!(model.state.lik_params, Ci_old)
+        deleteat!(S, Ci_old)
+        deleteat!(llik_old, Ci_old)
+
+        model.state.C[findall(model.state.C .> Ci_old)] .-= 1 # relabel all obs with label higher than the deleted one
+        Ci_out = model.state.C[i]
+        K -= 1
+    end
+
+    if wasnot_single && (Ci_out != Ci_old) # if was not single and changed groups, remove from old cluster (also, there was no collapse if wasnot_single, so we can use Ci_old)
+        model.state.lcohesions[Ci_old] = deepcopy(lcohesions0[Ci_old])
+        model.state.Xstats[Ci_old] = deepcopy(Xstats0[Ci_old])  ## Xstats0[Ci_old] can't come from a collapsed singleton, so this is ok
+        model.state.lsimilarities[Ci_old] = deepcopy(lsimilar0[Ci_old])
+        ## llik_out was copied from llik0, so no change to that
+        S[Ci_old] -= 1
+    end
+
+    ## otherwise, the unit was not reallocated, so change nothing
 
     return llik_out, K, S
 end
@@ -546,7 +604,7 @@ end
 function update_C!(model::Model_PPMx, 
     update_lik_params::Vector{Symbol}=[:mu, :sig, :beta], 
     method::Symbol=:MH, M_newclust::Int=10)
-    # method one of :MH, :FC
+    # method one of :MH, :FC (FC mot currently in use--must be corrected)
 
     K = length(model.state.lik_params)
     S = StatsBase.counts(model.state.C, K)

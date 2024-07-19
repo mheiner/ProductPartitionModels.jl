@@ -130,7 +130,7 @@ function aux_moments_empty(similarity::Similarity_NN)
 end
 
 
-function llik_k(y_k::Vector{T}, X_k::Union{Matrix{T}, Matrix{Union{T, Missing}}},
+function llik_k(y_k::Vector{T}, X_k::Union{Matrix{T}, Matrix{Union{T, Missing}}, Matrix{Missing}},
     ObsXIndx_k::Vector{ObsXIndx},
     lik_params_k::TT where TT <: LikParams_PPMxReg,
     Xstats_k::Vector{TTT} where TTT <: Similarity_PPMxStats,
@@ -197,7 +197,7 @@ function llik_k(y_k::Vector{T}, lik_params_k::TT where TT <: LikParams_PPMxMean)
     return Dict(:llik => sum(llik_out), :llik_vec => llik_out)
 end
 
-function llik_all(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
+function llik_all(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}, Matrix{Missing}},
     C::Vector{Int}, ObsXIndx::Vector{ObsXIndx},
     lik_params::Vector{TT} where TT <: LikParams_PPMxReg,
     Xstats::Vector{Vector{TTT}} where TTT <: Similarity_PPMxStats,

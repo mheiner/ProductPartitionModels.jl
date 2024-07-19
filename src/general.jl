@@ -59,7 +59,7 @@ end
 
 Calculate log cohesions, Xstats, and log similarity scores with covariate matrix `X` under any allocation vector `C`, `cohesion`, and `similarity`.
 """
-function get_lcohlsim(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
+function get_lcohlsim(C::Vector{Int}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}, Matrix{Missing}},
     cohesion::TT, similarity::TTT) where {T <: Real, TT <: Cohesion_PPM, TTT <: Similarity_PPMx}
     ## calculates log cohesions, Xstats, and log similarity scores for any C, cohesion, and similarity; see similarity.jl and cohesion.jl
 
@@ -88,7 +88,7 @@ Sampling models include `:Reg` (regression in the sampling model), `:Mean` (no r
 
 If `lik_rand` is true, generate cluster-specific parameters from the baseline.
 """
-function init_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
+function init_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}, Matrix{Missing}},
     C_init::Union{Int, Vector{Int}}=0;
     similarity_type::Symbol=:NN,
     sampling_model::Symbol=:Reg,
@@ -167,7 +167,7 @@ end
 
 Update the log likelihood and calculated cohesions, Xstats, and similarity scores in the PPMx state if any of allocation, baseline, lik_params, cohesion, or similarity change.
 """
-function refresh!(state::State_PPMx, y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}}, obsXIndx::Vector{ObsXIndx}, refresh_llik::Bool=true) where T <: Real
+function refresh!(state::State_PPMx, y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}, Matrix{Missing}}, obsXIndx::Vector{ObsXIndx}, refresh_llik::Bool=true) where T <: Real
     ## updates the log likelihood and calculated cohesions, Xstats, and similarity scores if any of C, baseline, lik_params, cohesion, or similarity change
 
     lcohes_upd, Xstats_upd, lsimil_upd = get_lcohlsim(state.C, X, state.cohesion, state.similarity)
@@ -263,7 +263,7 @@ end
 
 mutable struct Model_PPMx{T <: Real}
     y::Vector{T}
-    X::Union{Matrix{T}, Matrix{Union{T, Missing}}}
+    X::Union{Matrix{T}, Matrix{Union{T, Missing}}, Matrix{Missing}}
 
     obsXIndx::Vector{ObsXIndx}
     n::Int
@@ -287,7 +287,7 @@ Sampling models include `:Reg` (regression in the sampling model), `:Mean` (no r
 
 If `lik_rand` is true, generate cluster-specific parameters from the baseline.
 """
-function Model_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}},
+function Model_PPMx(y::Vector{T}, X::Union{Matrix{T}, Matrix{Union{T, Missing}}, Matrix{Missing}},
     C_init::Union{Int, Vector{Int}}=0;
     similarity_type::Symbol=:NN,
     sampling_model::Symbol=:Reg, # one of :Reg or :Mean
