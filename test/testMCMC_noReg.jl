@@ -21,11 +21,14 @@ R"library(matrixStats); library(salso); source('test/posterior_by_hand_functions
 # n = 3
 # p = 1
 
-n = 5
-p = 3
+n = 4
+p = 1
 
 X = randn(n,p)
 y = randn(n)
+
+X = fill(missing, (3,1))
+y = [-0.5, 0.0, 1.0]
 
 # X[3:n,1] .+= 2.0
 # y[3:n] .+= 2.0
@@ -56,13 +59,15 @@ sigmax = 10.0
 
 R"(rho = enumerate.partitions(n));"
 R"(B = nrow(rho));"
+# R"type = 'NA';" # PPM
 R"type = 'nn';"
 # R"type = 'nnig';"
 R"(lw_rho = rho_lpri(rho, type, alpha, X, v, m0, s20, sc_prec0, nu0)[[2]]);"
-R"(lw_rho_post = rho_lpost(lw_rho, y, sig2, mu0, sig20));"
+R"(lw_rho_post = rho_lpost(rho, lw_rho, y, sig2, mu0, sig20));"
 R"sum(exp(lw_rho_post));"
 R"round(tapply(exp(lw_rho), apply(rho, 1, max), FUN = sum), 5);"
 R"round(tapply(exp(lw_rho_post), apply(rho, 1, max), FUN = sum), 5);"
+@rget rho lw_rho_post
 
 cohesion = Cohesion_CRP(log(alpha), 0, true)
 
@@ -75,8 +80,9 @@ simtype = :NN
 sampling_model = :Mean
 sampling_model = :Reg # running this with betas all fixed at 0 should give same answer as :Mean
 
-algo_c = :MH
-algo_c = :FC
+algo_c = :MH # Algo 7
+algo_c = :FC # Aglo 8
+M_newclust = 1
 
 if sampling_model == :Mean
     G0 = Baseline_NormUnif(mu0, sig0, sigmax)
@@ -100,28 +106,30 @@ model.state.similarity = deepcopy(similarity)
 model.state.lik_params[1].sig
 
 mcmc!(model, 500000,
-    save=false,
-    thin=1,
-    n_procs=1,
-    report_filename="",
-    report_freq=50000,
-    # update=[:C, :mu, :sig, :mu0, :sig0]
-    update=[:C, :mu],
-    upd_c_mtd=algo_c
+    save = false,
+    thin = 1,
+    n_procs = 1,
+    report_filename = "",
+    report_freq = 50000,
+    # update = [:C, :mu, :sig, :mu0, :sig0]
+    update = [:C, :mu],
+    upd_c_mtd = algo_c,
+    M_newclust = M_newclust
 )
 
 sims = mcmc!(model, 50000,
-    save=true,
-    thin=10,
-    n_procs=1,
-    report_filename="",
-    report_freq=50000,
-    # update=[:C, :mu, :sig, :mu0, :sig0],
-    # update=[:C, :mu, :sig, :beta, :mu0, :sig0],
-    update=[:C, :mu],
-    # monitor=[:C],
-    monitor=[:C, :mu, :sig, :beta, :mu0, :sig0, :llik_mat],
-    upd_c_mtd=algo_c
+    save = true,
+    thin = 10,
+    n_procs = 1,
+    report_filename = "",
+    report_freq = 50000,
+    # update = [:C, :mu, :sig, :mu0, :sig0],
+    # update = [:C, :mu, :sig, :beta, :mu0, :sig0],
+    update = [:C, :mu],
+    # monitor = [:C],
+    monitor = [:C, :mu, :sig, :beta, :mu0, :sig0, :llik_mat],
+    upd_c_mtd = algo_c,
+    M_newclust = M_newclust
 )
 
 sims_K = [ maximum(sims[ii][:C]) for ii in 1:length(sims) ]
@@ -129,6 +137,16 @@ counts(sims_K) ./ length(sims_K)
 
 R"round(tapply(exp(lw_rho_post), apply(rho, 1, max), FUN = sum), 5);"
 R"round(tapply(exp(lw_rho), apply(rho, 1, max), FUN = sum), 5);"
+
+## individual partition probs
+sims_Cord = [ relabel_c(sims[ii][:C]) for ii in 1:length(sims)]
+sims_which_rho = [ findall([rho[i,:] == sims_Cord[ii] for i in 1:size(rho)[1]])[1] for ii in 1:length(sims) ]
+sims_post_rho = counts(sims_which_rho) ./ length(sims)
+w_post_rho = exp.(lw_rho_post)
+
+hcat(hcat(sims_post_rho, w_post_rho))
+sims_post_rho - w_post_rho
+maximum(abs.(sims_post_rho - w_post_rho))
 
 # sims_llik = [ sims[ii][:llik] for ii in 1:length(sims) ]
 # sims_llik_mat = permutedims( hcat( [ sims[ii][:llik_mat] for ii in 1:length(sims) ]...) )

@@ -83,9 +83,11 @@ fit_PPMx = function(y, X, Xpred, nburn, nkeep, nthin, pred_insamp=FALSE,
 
   if (upd_c_mtd == "MH") {
     julia_command("upd_c_mtd = :MH", show_value=FALSE)
+    julia_command("M_newclust = 1") # unused default value
   } else if (upd_c_mtd == "FC") {
     julia_command("upd_c_mtd = :FC", show_value=FALSE)
-    julia_command("M_newclust = M_newclust", show_value=FALSE)
+    julia_assign("M_newclust", M_newclust)
+    julia_command("M_newclust = Int(M_newclust)")
   }
   
   julia_command("for i in 1:length(mod.state.lik_params) mod.state.lik_params[i].sig = 0.1 end", show_value=FALSE) # temporary hack
