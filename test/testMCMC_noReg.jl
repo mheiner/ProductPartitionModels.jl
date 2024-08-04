@@ -22,13 +22,14 @@ R"library(matrixStats); library(salso); source('test/posterior_by_hand_functions
 # p = 1
 
 n = 4
-p = 1
+p = 2
 
 X = randn(n,p)
 y = randn(n)
 
 X = fill(missing, (3,1))
 y = [-0.5, 0.0, 1.0]
+n, p = size(X)
 
 # X[3:n,1] .+= 2.0
 # y[3:n] .+= 2.0
@@ -51,7 +52,7 @@ nu0 = 4.0
 sig = 1.0
 sig2 = sig^2
 mu0 = 0.0
-sig0 = 5.0
+sig0 = 1.0
 sig20 = sig0^2
 sigmax = 10.0
 
@@ -105,7 +106,7 @@ model.state.similarity = deepcopy(similarity)
 
 model.state.lik_params[1].sig
 
-mcmc!(model, 500000,
+mcmc!(model, 10000,
     save = false,
     thin = 1,
     n_procs = 1,
@@ -117,9 +118,9 @@ mcmc!(model, 500000,
     M_newclust = M_newclust
 )
 
-sims = mcmc!(model, 50000,
+sims = mcmc!(model, 100000,
     save = true,
-    thin = 10,
+    thin = 5,
     n_procs = 1,
     report_filename = "",
     report_freq = 50000,
@@ -132,15 +133,15 @@ sims = mcmc!(model, 50000,
     M_newclust = M_newclust
 )
 
-sims_K = [ maximum(sims[ii][:C]) for ii in 1:length(sims) ]
-counts(sims_K) ./ length(sims_K)
+sims_K = [ maximum(sims[ii][:C]) for ii in eachindex(sims) ]
+counts(sims_K) ./ length(sims_K) |> print
 
 R"round(tapply(exp(lw_rho_post), apply(rho, 1, max), FUN = sum), 5);"
 R"round(tapply(exp(lw_rho), apply(rho, 1, max), FUN = sum), 5);"
 
 ## individual partition probs
-sims_Cord = [ relabel_c(sims[ii][:C]) for ii in 1:length(sims)]
-sims_which_rho = [ findall([rho[i,:] == sims_Cord[ii] for i in 1:size(rho)[1]])[1] for ii in 1:length(sims) ]
+sims_Cord = [ relabel_c(sims[ii][:C]) for ii in eachindex(sims)]
+sims_which_rho = [ findall([rho[i,:] == sims_Cord[ii] for i in 1:size(rho)[1]])[1] for ii in eachindex(sims) ]
 sims_post_rho = counts(sims_which_rho) ./ length(sims)
 w_post_rho = exp.(lw_rho_post)
 
@@ -148,11 +149,11 @@ hcat(hcat(sims_post_rho, w_post_rho))
 sims_post_rho - w_post_rho
 maximum(abs.(sims_post_rho - w_post_rho))
 
-# sims_llik = [ sims[ii][:llik] for ii in 1:length(sims) ]
-# sims_llik_mat = permutedims( hcat( [ sims[ii][:llik_mat] for ii in 1:length(sims) ]...) )
+# sims_llik = [ sims[ii][:llik] for ii in eachindex(sims) ]
+# sims_llik_mat = permutedims( hcat( [ sims[ii][:llik_mat] for ii in eachindex(sims) ]...) )
 # Kmax = maximum(sims_K)
-# sims_S = permutedims( hcat( [ counts(sims[ii][:C], Kmax) for ii in 1:length(sims) ]...) )
-# sims_Sord = permutedims( hcat( [ sort(counts(sims[ii][:C], maximum(sims_K)), rev=true) for ii in 1:length(sims) ]...) )
+# sims_S = permutedims( hcat( [ counts(sims[ii][:C], Kmax) for ii in eachindex(sims) ]...) )
+# sims_Sord = permutedims( hcat( [ sort(counts(sims[ii][:C], maximum(sims_K)), rev=true) for ii in eachindex(sims) ]...) )
 
 # using Plots
 # # Plots.PlotlyBackend() # don't use unless you have to--tends to crash

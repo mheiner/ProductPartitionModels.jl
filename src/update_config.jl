@@ -5,16 +5,18 @@ function update_Ci!(model::Model_PPMx, i::Int, K::Int, S::Vector{Int},
     M_newclust::Int=10
     ) where T <: Real
 
-    # FIXME This algorithm should remove obs i, but if it's a singleton, make the old params one of the extras (needs to be able to return to original state); 
-    ## do not use until corrected.
     ## Currently implemented ONLY for the :Reg type model and not the :Mean type
 
     ## remove obs i from current C and modify current cohesions, Xstats, and similarities without obs i
     Ci_old = model.state.C[i]
     model.state.C[i] = 0
     wasnot_single = S[Ci_old] > 1
-    # S[Ci_old] -= 1
 
+    logM_nc = log(M_newclust)
+    if !wasnot_single
+        M_newclust -= 1 # the existing singleton will become one of the proposed singletons
+    end
+ 
     ## cohesions, Xstats, and similarities each with obs i hypothetically in (1) or not in (0) each cluster
 
     lcohesions0 = deepcopy(model.state.lcohesions)
@@ -83,7 +85,7 @@ function update_Ci!(model::Model_PPMx, i::Int, K::Int, S::Vector{Int},
             llik0[k] = llik_k(model.y[indx_k], model.X[indx_k,:], model.obsXIndx[indx_k], model.state.lik_params[k], Xstats0[k], model.state.similarity)[:llik]
             llik1[k] = deepcopy(llik_old[k])
         elseif (k == Ci_old)
-            llik0[k] = 0.0 ## is this right?
+            llik0[k] = 0.0
             llik1[k] = deepcopy(llik_old[k])
         else # k != Ci_old
             indx_k_cand = vcat(indx_k, i)
@@ -97,24 +99,31 @@ function update_Ci!(model::Model_PPMx, i::Int, K::Int, S::Vector{Int},
         llik_wgts[k] = sum_llik0 - llik0[k] + llik1[k]
     end
 
-    lik_params_extra = [ simpri_lik_params(model.state.baseline, model.p, model.state.lik_params[1], update_lik_params) for kk in 1:M_newclust ]
-    llik_newclust = [ llik_k(model.y[[i]], model.X[[i],:], [model.obsXIndx[i]], lik_params_extra[kk], Xstats_newclust, model.state.similarity)[:llik] for kk in 1:M_newclust ]
-    llik_wgts_newclust = sum_llik0 .+ llik_newclust
+    if M_newclust > 0
+        lik_params_extra = [ simpri_lik_params(model.state.baseline, model.p, model.state.lik_params[1], update_lik_params) for kk in 1:M_newclust ]
+        llik_newclust = [ llik_k(model.y[[i]], model.X[[i],:], [model.obsXIndx[i]], lik_params_extra[kk], Xstats_newclust, model.state.similarity)[:llik] for kk in 1:M_newclust ]
+        llik_wgts_newclust = sum_llik0 .+ llik_newclust
+    end
 
     ## calculate weights
     lw = Vector{Float64}(undef, K + M_newclust)
     for k in 1:K
         lw[k] = lcohesions1[k] + sum(lsimilar1[k]) - lcohesions0[k] - sum(lsimilar0[k]) + llik_wgts[k]
     end
+    ## modify the weight for the old singleton
+    if !wasnot_single
+        lw[Ci_old] -= logM_nc
+    end
 
     ## weight for new singleton cluster(s)
-    logM_nc = log(M_newclust)
-    for kk in 1:M_newclust
-        lw[K + kk] = lcohes_newclust + sum(lsimilar_newclust) + llik_wgts_newclust[kk] - logM_nc
+    if M_newclust > 0
+        for kk in 1:M_newclust
+            lw[K + kk] = lcohes_newclust + sum(lsimilar_newclust) - logM_nc + llik_wgts_newclust[kk] 
+        end
     end
 
     ## sample membership
-    lw = lw .- maximum(lw)
+    lw .-= maximum(lw)
     Ci_out = StatsBase.sample(StatsBase.Weights(exp.(lw)))
     
     if Ci_out > K
@@ -122,13 +131,18 @@ function update_Ci!(model::Model_PPMx, i::Int, K::Int, S::Vector{Int},
         Ci_out = K + 1
     end
 
-    ## continuing log likelihood
-    llik_out = deepcopy(llik0)
-
     ## refresh model state to reflect update
     model.state.C[i] = Ci_out
+    moved = (Ci_out != Ci_old)
 
-    if (Ci_out != Ci_old) && (Ci_out <= K) # if moving within existing clusters, migrate to new cluster
+    ## continuing log likelihood
+    if moved 
+        llik_out = deepcopy(llik0)
+    else
+        llik_out = deepcopy(llik_old)
+    end
+
+    if moved && (Ci_out <= K) # if moving within existing clusters, migrate to new cluster
         model.state.lcohesions[Ci_out] = deepcopy(lcohesions1[Ci_out])
         model.state.Xstats[Ci_out] = deepcopy(Xstats1[Ci_out])
         model.state.lsimilarities[Ci_out] = deepcopy(lsimilar1[Ci_out])
@@ -146,20 +160,20 @@ function update_Ci!(model::Model_PPMx, i::Int, K::Int, S::Vector{Int},
         push!(S, 1)
     end
 
-    if (!wasnot_single) && (Ci_out != Ci_old) ## if C[i] was a singleton and changed groups, collapse    
+    if (!wasnot_single) && moved ## if C[i] was a singleton and changed groups, collapse    
         deleteat!(model.state.lcohesions, Ci_old)
         deleteat!(model.state.Xstats, Ci_old)
         deleteat!(model.state.lsimilarities, Ci_old)
         deleteat!(model.state.lik_params, Ci_old)
         deleteat!(S, Ci_old)
-        deleteat!(llik_old, Ci_old)
+        deleteat!(llik_out, Ci_old)
 
         model.state.C[findall(model.state.C .> Ci_old)] .-= 1 # relabel all obs with label higher than the deleted one
         Ci_out = model.state.C[i]
         K -= 1
     end
 
-    if wasnot_single && (Ci_out != Ci_old) # if was not single and changed groups, remove from old cluster (also, there was no collapse if wasnot_single, so we can use Ci_old)
+    if wasnot_single && moved # if was not single and changed groups, remove from old cluster (also, there was no collapse if wasnot_single, so we can use Ci_old)
         model.state.lcohesions[Ci_old] = deepcopy(lcohesions0[Ci_old])
         model.state.Xstats[Ci_old] = deepcopy(Xstats0[Ci_old])  ## Xstats0[Ci_old] can't come from a collapsed singleton, so this is ok
         model.state.lsimilarities[Ci_old] = deepcopy(lsimilar0[Ci_old])
@@ -167,7 +181,11 @@ function update_Ci!(model::Model_PPMx, i::Int, K::Int, S::Vector{Int},
         S[Ci_old] -= 1
     end
 
-    ## otherwise, the unit was not reallocated, so change nothing
+    (K == length(S)) || throw("accounting for K or S is incorrect")
+    (K == length(model.state.lik_params)) || throw("accounting for K or lik_params is incorrect")
+    (K == length(llik_out)) || throw("accounting for K or llik_out is incorrect")
+
+    ## otherwise, the unit was not reallocated, so change nothing else
 
     return llik_out, K, S
 end

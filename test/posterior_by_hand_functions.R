@@ -84,7 +84,7 @@ rho_lpri = function(rho, type="nn", alpha, X, v, m0, s20, sc_prec0, nu0) {
 }
 
 
-rho_lpost = function(lw_pri, y, sig2, mu0, sig20, theta=0.0) {
+rho_lpost = function(rho, lw_pri, y, sig2, mu0, sig20, theta=0.0) {
   B = length(lw_pri)
   lw_out = lw_pri
   
